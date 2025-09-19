@@ -16,18 +16,8 @@ In today’s fast-moving e-commerce world, customers demand **instant, intellige
 
 ## 🏗️ System Architecture  
 
-```mermaid
-flowchart TD
-    A[Users / Customers] -->|Queries| B[Frontend Chat UI]
-    B --> C[FastAPI Backend]
-    C --> D[RAG + LangChain Agents]
-    D --> E1[Static Data: Product CSV, Descriptions, Reviews]
-    D --> E2[Real-Time Data: APIs, Web Scraping (Amazon, Flipkart)]
-    D --> E3[MCP Server - Context Merger]
-    C --> F[Response Engine]
-    F --> A
-    C -->|Logging / Monitoring| G[AWS EKS + CloudWatch]
-```
+comming soon...
+
 
 ---
 
