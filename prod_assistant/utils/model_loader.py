@@ -6,6 +6,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_groq import ChatGroq
 from prod_assistant.utils.config_loader import load_config
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from prod_assistant.utils.api_key_manager import ApiKeyManager
 from dotenv import load_dotenv
 from prod_assistant.logger import GLOBAL_LOGGER as log
@@ -44,3 +45,46 @@ class ModelLoader:
         except ProductAssistantException as e:
             log.error("Error in embedding model load", error=str(e))
             raise ProductAssistantException("failed to load embedding model", sys)
+
+    def load_llm(self):
+        try:
+            llm_block = self.config['llm']
+            provider_key = os.getenv('LLM_PROVIDER', 'google')
+
+            if provider_key not in llm_block:
+                log.error('invalid LLM provider name', provider=provider_key)
+                raise ValueError('invalid LLM provider name')
+
+            llm_config = llm_block[provider_key]
+            provider = llm_config.get('provider')
+            model_name = llm_config.get('llm_name')
+            temperature = llm_config.get('temperature', 0.2)
+            max_tokens = llm_config.get('max_output_tokens', 2048)
+
+            log.info("loading LLM...", provider=provider, model=model_name)
+
+            if provider == 'google':
+                return ChatGoogleGenerativeAI(
+                    model=model_name,
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                    google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY")
+                )
+
+            elif provider == 'groq':
+                return ChatGroq(
+                    model=model_name,
+                    api_key=self.api_key_mgr.get('GROQ_API_KEY'),
+                    temperature=temperature
+                )
+
+            elif provider == 'openai':
+                return ChatOpenAI(
+                    model=model_name,
+                    temperature=temperature,
+                    api_key=self.api_key_mgr.get('openai_api_key')
+                )
+
+        except ProductAssistantException as e:
+            log.error("Error in LLM load", error=str(e))
+            raise ProductAssistantException("failed to load LLM load", sys)
