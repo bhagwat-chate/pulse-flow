@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 import structlog
 
+
 class CustomLogger:
     def __init__(self, log_dir="logs"):
         self.logs_dir = os.path.join(os.getcwd(), log_dir)
@@ -18,7 +19,7 @@ class CustomLogger:
 
         file_handler = logging.FileHandler(self.log_file_path)
         file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(logging.Formatter("%(message)s"))
+        file_handler.setFormatter(logging.Formatter("%(message)s"))  # Raw JSON lines
 
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
@@ -26,7 +27,7 @@ class CustomLogger:
 
         logging.basicConfig(
             level=logging.INFO,
-            format="%(message)s",
+            format="%(message)s",  # Structlog will handle JSON rendering
             handlers=[console_handler, file_handler]
         )
 
