@@ -3,6 +3,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from typing import List
 from langchain_core.documents import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_astradb import AstraDBVectorStore
 from prod_assistant.utils.model_loader import ModelLoader
 from prod_assistant.utils.config_loader import load_config
@@ -11,7 +12,7 @@ from prod_assistant.utils.config_loader import load_config
 class DataIngestion:
     def __init__(self):
         print("initializing data ingestion pipeline...")
-        self.model_loader=ModelLoader()
+        self.model_loader = ModelLoader()
         self._load_env_variables()
         self.csv_path = self._get_csv_path()
         self.product_data = self._load_csv()
@@ -21,12 +22,12 @@ class DataIngestion:
         load_dotenv()
 
         required_vars = ['OPENAI_API_KEY', 'GOOGLE_API_KEY', 'ASTRA_DB_ENDPOINT', 'ASTRA_DB_APPLICATION_TOKEN', 'ASTRA_DB_KEYSPACE']
-        missing_vars = [var for var in required_vars if os.getenv() is None]
+        missing_vars = [var for var in required_vars if os.getenv(var) is None]
 
         if missing_vars:
             raise EnvironmentError(f"missing environment variables: {missing_vars}")
 
-        self.google_api_key = os.getenv('OPENAI_API_KEY')
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.google_api_key = os.getenv('GOOGLE_API_KEY')
         self.db_api_endpoint = os.getenv('ASTRA_DB_ENDPOINT')
         self.db_application_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
@@ -39,11 +40,13 @@ class DataIngestion:
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"CSV file not found at: {csv_path}")
 
+        return csv_path
+
     def _load_csv(self):
         df = pd.read_csv(self.csv_path)
         expected_columns = {'product_id', "product_title", 'rating', 'total_reviews', 'price', 'top_reviews'}
 
-        if not expected_columns:
+        if not expected_columns.issubset(df.columns):
             raise ValueError(f"CSV must contain all the columns: {expected_columns}")
 
         return df
@@ -78,7 +81,28 @@ class DataIngestion:
 
             print(f"transformed '{len(documents)}' reviews into document")
 
+        return documents
+
+    def chunk_reviews(self, documents):
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=100,  # ~500 chars (tune depending on reviews)
+            chunk_overlap=10,  # overlap to preserve context
+            separators=["||"]
+        )
+        new_docs = []
+        for doc in documents:
+            chunks = splitter.split_text(doc.page_content)
+            for chunk in chunks:
+                new_docs.append(
+                    Document(page_content=chunk, metadata=doc.metadata)
+                )
+        return new_docs
+
     def store_in_vector_db(self, documents: List[Document]):
+
+        doc_chunks = self.chunk_reviews(documents)
+        print(f"chunks: {len(doc_chunks)} created from docs: {len(documents)}")
+
         collection_name = self.config['astra_db']['collection_name']
         vector_store = AstraDBVectorStore(
             embedding=self.model_loader.load_embeddings(),
@@ -88,8 +112,9 @@ class DataIngestion:
             namespace=self.db_keyspace,
         )
 
-        inserted_ids = vector_store.add_documents(documents)
-        print(f"successfully loaded the documents into AstraDB: {len(documents)}")
+        inserted_ids = vector_store.add_documents(doc_chunks)
+
+        print(f"successfully loaded the documents into AstraDB: {len(doc_chunks)}")
 
         return vector_store, inserted_ids
 
