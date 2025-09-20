@@ -15,6 +15,7 @@ dist/
 wheels/
 *.manifest
 *.spec
+data/
 
 # -----------------------------
 # Virtual Environments
