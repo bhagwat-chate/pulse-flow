@@ -1,15 +1,93 @@
-# Python-generated files
+# -----------------------------
+# Python / Build Artifacts
+# -----------------------------
 __pycache__/
 *.py[oc]
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.egg-info
+*.egg
 build/
 dist/
 wheels/
-*.egg-info
+*.manifest
+*.spec
 
-# Virtual environments
+# -----------------------------
+# Virtual Environments
+# -----------------------------
 .venv
-venv-pluse-flow
-.idea
-__pycache__
-.python-version
+venv
+venv-*/
 .env
+.env_*
+*.env
+
+# -----------------------------
+# IDE / Editor
+# -----------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+
+# -----------------------------
+# Jupyter / IPython
+# -----------------------------
+.ipynb_checkpoints
+.profile
+*.ipynb_convert
+
+# -----------------------------
+# Logs & Temp Files
+# -----------------------------
+*.log
+*.tmp
+*.out
+*.pid
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# HuggingFace / Transformers
+# -----------------------------
+# Cache of downloaded models/datasets
+.cache/
+.huggingface/
+transformers_cache/
+torch_cache/
+datasets/
+
+# -----------------------------
+# Vector DBs / Indexes
+# -----------------------------
+chroma_db/
+faiss_index/
+weaviate_index/
+milvus_index/
+
+# -----------------------------
+# Checkpoints / Model Artifacts
+# -----------------------------
+*.ckpt
+*.pt
+*.bin
+*.h5
+*.onnx
+*.tflite
+*.joblib
+*.pkl
+
+# -----------------------------
+# Project-specific
+# -----------------------------
+# Ignore local config files
+config.local.json
+secrets.json
+
+# NodeJS (if frontend present)
+node_modules/
