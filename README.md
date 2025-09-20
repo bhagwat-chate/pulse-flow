@@ -87,17 +87,39 @@ Use **APIs & scraping pipelines** to fetch product details, reviews, and live av
 
 ```bash
 pulse-flow/
-│── data/                 # Product datasets (CSV, reviews, embeddings)
-│── ingestion/            # Data pipelines (APIs, web scraping)
-│── retriever/            # RAG retriever logic
-│── agents/               # LangChain agent scripts
-│── mcp/                  # Multi-Channel Processing server
-│── backend/              # FastAPI backend
-│── frontend/             # Chat UI (HTML/CSS/JS)
-│── ci-cd/                # GitHub Actions workflows, Dockerfiles, Trivy configs
-│── k8s/                  # Kubernetes manifests (deployment, service, configmap)
-│── docs/                 # Diagrams, architecture notes, learnings
-│── README.md             # Project overview
+├── .github
+│   └── workflows
+│       └── .gitkeep
+├── .gitignore
+├── LICENSE
+├── README.md
+├── get_project_structure.py
+├── main.py
+├── notebook
+│   └── experiment.ipynb
+├── prod_assistant
+│   ├── config
+│   │   └── config.yaml
+│   ├── etl
+│   │   ├── data_ingestion.py
+│   │   └── data_scrapper.py
+│   ├── exception
+│   │   └── custom_exception.py
+│   ├── logger
+│   │   └── custom_logger.py
+│   └── utils
+│       ├── api_key_manager.py
+│       ├── config_loader.py
+│       └── model_loader.py
+├── pyproject.toml
+├── requirements.txt
+├── scrapper_ui.py
+├── static
+│   └── online_shopping.png
+├── templetes
+│   └── index.html
+└── versions.py
+
 ```
 
 ---
