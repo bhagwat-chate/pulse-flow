@@ -12,3 +12,4 @@ venv-pluse-flow
 .idea
 __pycache__
 .python-version
+.env
