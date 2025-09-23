@@ -2,7 +2,6 @@
 
 import sys
 
-
 def main():
     """Entry point for the pulse-flow CLI."""
     print("🚀 Pulse-Flow is running!")
