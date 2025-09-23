@@ -1,3 +1,5 @@
+# prod_assistant/etl/data_ingestion.py
+
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -52,35 +54,32 @@ class DataIngestion:
         return df
 
     def transform_data(self):
-        product_list = []
+        """
+        Transform product DataFrame into LangChain Document objects.
 
-        for _, row in self.product_data.iterrows():
-            product_entry = {
-                "product_id": row['product_id'],
-                "product_title": row['product_title'],
-                "rating": row['rating'],
-                'total_reviews': row['total_reviews'],
-                'price': row['price'],
-                'top_reviews': row['top_reviews']
-            }
-            product_list.append(product_entry)
-
+        Returns:
+            List[Document]: List of product review documents with metadata.
+        """
         documents = []
-        for entry in product_list:
+
+        for row in self.product_data.to_dict(orient="records"):
+            review_text = str(row.get("top_reviews", "")).strip()
+            if not review_text:  # skip missing/empty reviews
+                continue
+
             metadata = {
-                "product_id": entry['product_id'],
-                "product_title": entry['product_title'],
-                "rating": entry['rating'],
-                'total_reviews': entry['total_reviews'],
-                'price': entry['price'],
-                'top_reviews': entry['top_reviews']
+                "product_id": row["product_id"],
+                "product_title": row["product_title"],
+                "rating": row["rating"],
+                "total_reviews": row["total_reviews"],
+                "price": row["price"],
             }
 
-            doc = Document(page_content=entry['top_reviews'], metadata=metadata)
-            documents.append(doc)
+            documents.append(
+                Document(page_content=review_text, metadata=metadata)
+            )
 
-            print(f"transformed '{len(documents)}' reviews into document")
-
+        print(f"Transformed {len(documents)} product reviews into documents")
         return documents
 
     def chunk_reviews(self, documents):
