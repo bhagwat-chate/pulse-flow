@@ -16,6 +16,8 @@ wheels/
 *.manifest
 *.spec
 data/
+prod_assistant/ecomm_prod_assistant.egg-info
+pulse_flow.egg-info
 
 # -----------------------------
 # Virtual Environments
