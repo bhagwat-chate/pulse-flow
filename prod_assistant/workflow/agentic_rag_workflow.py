@@ -103,3 +103,11 @@ class AgenticRAG:
 
         return {"messages": HumanMessage(content=response)}
 
+    def _rewrite(self, state: AgenticState):
+        print("---REWRITER---")
+        question = state['messages'][0].content
+
+        new_q = self.llm.invoke([HumanMessage(content=f"Rewrite the query to be clearer: {question}")])
+
+        return {"messages": [HumanMessage(content=new_q.content)]}
+
