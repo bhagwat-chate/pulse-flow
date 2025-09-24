@@ -51,7 +51,7 @@ class ModelLoader:
     def load_llm(self):
         try:
             llm_block = self.config['llm']
-            provider_key = os.getenv('LLM_PROVIDER', 'google')
+            provider_key = os.getenv('LLM_PROVIDER', 'openai')
 
             if provider_key not in llm_block:
                 log.error('invalid LLM provider name', provider=provider_key)
@@ -59,7 +59,7 @@ class ModelLoader:
 
             llm_config = llm_block[provider_key]
             provider = llm_config.get('provider')
-            model_name = llm_config.get('llm_name')
+            model_name = llm_config.get('model_name')
             temperature = llm_config.get('temperature', 0.2)
             max_tokens = llm_config.get('max_output_tokens', 2048)
 
@@ -70,13 +70,13 @@ class ModelLoader:
                     model=model_name,
                     temperature=temperature,
                     max_output_tokens=max_tokens,
-                    google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY")
+                    google_api_key=self.api_key_mgr.api_keys.get("GOOGLE_API_KEY")
                 )
 
             elif provider == 'groq':
                 return ChatGroq(
                     model=model_name,
-                    api_key=self.api_key_mgr.get('GROQ_API_KEY'),
+                    api_key=self.api_key_mgr.api_keys.get('GROQ_API_KEY'),
                     temperature=temperature
                 )
 
@@ -84,7 +84,7 @@ class ModelLoader:
                 return ChatOpenAI(
                     model=model_name,
                     temperature=temperature,
-                    api_key=self.api_key_mgr.get('openai_api_key')
+                    api_key=self.api_key_mgr.api_keys.get("OPENAI_API_KEY")
                 )
 
         except ProductAssistantException as e:
