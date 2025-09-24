@@ -5,8 +5,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import START, END
-from langgraph.graph.message import add_messages, BaseMessage
-from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
+from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
 
 from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
@@ -86,4 +87,19 @@ class AgenticRAG:
         score = chain.invoke({"question": question, "docs": docs})
 
         return "generator" if "yes" in score.lower() else "rewriter"
+
+    def _generate(self, state: AgenticState):
+        print("---GENERATE---")
+        question = state['messages'][0].content
+        docs = state['messages'][-1].content
+
+        prompt = ChatPromptTemplate.from_template(
+            PROMPT_REGISTRY[PromptType.PRODUCT_BOT].template
+        )
+
+        chain = prompt | self.llm | StrOutputParser()
+
+        response = chain.invoke({"context": docs, "question": question})
+
+        return {"messages": HumanMessage(content=response)}
 
