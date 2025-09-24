@@ -13,6 +13,7 @@ from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
 from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
 from langgraph.checkpoint.memory import MemorySaver
+from pathlib import Path
 
 
 class AgenticRAG:
@@ -31,18 +32,19 @@ class AgenticRAG:
     def _format_docs(self, docs) -> str:
         if not docs:
             return "no relevant documents found"
+
         formatted_chunks = []
 
         for d in docs:
-            meta = docs.metadata or {}
+            meta = d.metadata or {}
 
             formatted = (
-                f"Title: {meta.get('product_title'), 'N/A'}"
-                f"Price: {meta.get('price'), 'N/A'}"
-                f"Rating: {meta.get('rating'), 'N/A'}"
-                f"Reviews: \n{meta.get(d.page_content.strip())}"
+                f"Title: {meta.get('product_title', 'N/A')}\n"
+                f"Price: {meta.get('price', 'N/A')}\n"
+                f"Rating: {meta.get('rating', 'N/A')}\n"
+                f"Reviews:\n{d.page_content.strip()}"
             )
-        formatted_chunks.append(formatted)
+            formatted_chunks.append(formatted)
 
         return "\n\n---\n\n".join(formatted_chunks)
 
@@ -112,25 +114,25 @@ class AgenticRAG:
 
         return {"messages": [HumanMessage(content=new_q.content)]}
 
-    def _build_workflow(self, state: AgenticState):
+    def _build_workflow(self):
 
         workflow = StateGraph(self.AgenticState)
 
-        workflow.add_node("Assistant", self._ai_assistant())
-        workflow.add_node("Retriever", self._vector_retriever())
-        workflow.add_node("Generator", self._generate())
-        workflow.add_node("Rewriter", self._rewrite())
+        workflow.add_node("Assistant", self._ai_assistant)
+        workflow.add_node("Retriever", self._vector_retriever)
+        workflow.add_node("Generator", self._generate)
+        workflow.add_node("Rewriter", self._rewrite)
 
         workflow.add_edge(START, 'Assistant')
         workflow.add_conditional_edges(
             "Assistant",
             lambda state: "Retriever" if "TOOL" in state['messages'][-1].content else END,
-            {"Rewriter": "Rewriter", END: END}
+            {"Retriever": "Retriever", END: END}
         )
 
         workflow.add_conditional_edges(
             "Retriever",
-            self._grade_documents(),
+            self._grade_documents,
             {"generator": "Generator", "rewriter": "Rewriter"}
         )
         workflow.add_edge("Generator", END)
@@ -138,3 +140,28 @@ class AgenticRAG:
 
         return workflow
 
+    def run(self, query: str,thread_id: str = "default_thread") -> str:
+        """Run the workflow for a given query and return the final answer."""
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]},
+                                 config={"configurable": {"thread_id": thread_id}})
+        return result["messages"][-1].content
+
+    def save_graph(self, path: str = "agentic_rag_workflow.mmd"):
+        """Save workflow as Mermaid markdown (renderable online)."""
+        compiled = self.workflow.compile()
+        g = compiled.get_graph()
+        mermaid_code = g.draw_mermaid()
+
+        with open(path, "w") as f:
+            f.write(mermaid_code)
+
+        print(f"Mermaid graph saved to {path}")
+        print("👉 Copy the contents into https://mermaid.live to view the diagram.")
+
+
+if __name__ == '__main__':
+    query = "What is the price of iPhone 15 plus?"
+    agent = AgenticRAG()
+    agent.save_graph("agentic_rag_workflow.png")
+    response = agent.run(query=query, thread_id='BHAGWAT_CHATE')
+    print(f"Q: {query}\nA: {response}")
