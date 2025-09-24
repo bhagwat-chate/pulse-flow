@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import START, END
+from langgraph.graph import StateGraph
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
@@ -110,4 +111,30 @@ class AgenticRAG:
         new_q = self.llm.invoke([HumanMessage(content=f"Rewrite the query to be clearer: {question}")])
 
         return {"messages": [HumanMessage(content=new_q.content)]}
+
+    def _build_workflow(self, state: AgenticState):
+
+        workflow = StateGraph(self.AgenticState)
+
+        workflow.add_node("Assistant", self._ai_assistant())
+        workflow.add_node("Retriever", self._vector_retriever())
+        workflow.add_node("Generator", self._generate())
+        workflow.add_node("Rewriter", self._rewrite())
+
+        workflow.add_edge(START, 'Assistant')
+        workflow.add_conditional_edges(
+            "Assistant",
+            lambda state: "Retriever" if "TOOL" in state['messages'][-1].content else END,
+            {"Rewriter": "Rewriter", END: END}
+        )
+
+        workflow.add_conditional_edges(
+            "Retriever",
+            self._grade_documents(),
+            {"generator": "Generator", "rewriter": "Rewriter"}
+        )
+        workflow.add_edge("Generator", END)
+        workflow.add_edge("Rewriter", "Assistant")
+
+        return workflow
 
