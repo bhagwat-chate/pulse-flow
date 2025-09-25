@@ -13,7 +13,6 @@ from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
 from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
 from langgraph.checkpoint.memory import MemorySaver
-from pathlib import Path
 
 
 class AgenticRAG:
@@ -146,22 +145,9 @@ class AgenticRAG:
                                  config={"configurable": {"thread_id": thread_id}})
         return result["messages"][-1].content
 
-    def save_graph(self, path: str = "agentic_rag_workflow.mmd"):
-        """Save workflow as Mermaid markdown (renderable online)."""
-        compiled = self.workflow.compile()
-        g = compiled.get_graph()
-        mermaid_code = g.draw_mermaid()
-
-        with open(path, "w") as f:
-            f.write(mermaid_code)
-
-        print(f"Mermaid graph saved to {path}")
-        print("👉 Copy the contents into https://mermaid.live to view the diagram.")
-
 
 if __name__ == '__main__':
     query = "What is the price of iPhone 15 plus?"
     agent = AgenticRAG()
-    agent.save_graph("agentic_rag_workflow.png")
     response = agent.run(query=query, thread_id='BHAGWAT_CHATE')
     print(f"Q: {query}\nA: {response}")
