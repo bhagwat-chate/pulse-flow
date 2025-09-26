@@ -139,7 +139,7 @@ class AgenticRAG:
 
         return workflow
 
-    def run(self, query: str,thread_id: str = "default_thread") -> str:
+    def run(self, query: str, thread_id: str = "default_thread") -> str:
         """Run the workflow for a given query and return the final answer."""
         result = self.app.invoke({"messages": [HumanMessage(content=query)]},
                                  config={"configurable": {"thread_id": thread_id}})
