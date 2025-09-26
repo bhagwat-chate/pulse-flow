@@ -10,6 +10,8 @@ from prod_assistant.utils.config_loader import load_config
 
 from langchain.retrievers.document_compressors import LLMChainFilter
 from langchain.retrievers import ContextualCompressionRetriever
+from prod_assistant.evaluation.ragas_eval import evaluate_context_precision
+from prod_assistant.evaluation.ragas_eval import evaluate_response_relevancy
 
 
 class Retriever:
@@ -93,9 +95,43 @@ class Retriever:
 
 
 if __name__ == '__main__':
-    retriever_obj = Retriever()
-    user_query = "iPhone 15 plus?"
-    results = retriever_obj.call_retriever(user_query)
 
-    for idx, doc in enumerate(results, 1):
-        print(f"Result {idx}: {doc.page_content}\nMetadata: {doc.metadata}\n")
+    user_query = "Can you suggest good budget iPhone under 1,00,000 INR?"
+
+    retriever_obj = Retriever()
+    retrieved_docs = retriever_obj.call_retriever(user_query)
+
+    # for idx, doc in enumerate(results, 1):
+    #     print(f"Result {idx}: {doc.page_content}\nMetadata: {doc.metadata}\n")
+
+    formatted_chunks = []
+
+    def _format_docs(docs) -> str:
+
+        if not docs:
+            return "No relevant documents found"
+
+        for d in docs:
+            meta = d.metadata or {}
+
+            formatted = (
+                f"Title: {meta.get('product_title', 'N/A')}\n"
+                f"Price: {meta.get('price', 'N/A')}\n"
+                f"Rating: {meta.get('rating', 'N/A')}\n"
+                f"Reviews: \n{meta.get(d.page_content.strip(), 'N/A')}"
+            )
+
+            formatted_chunks.append(formatted)
+
+        return "\n\n---\n\n".join(formatted_chunks)
+
+    retrieved_contexts = [_format_docs(doc) for doc in retrieved_docs]
+
+    # below response is set only for testing purpose.
+    response = "iPhone 16 plus, iPhone 15, iPhone 16 are the best iPhone under 1,00,000, INR"
+    context_score = evaluate_context_precision(user_query, response, retrieved_contexts)
+    relevancy_score = evaluate_response_relevancy(user_query, response, retrieved_contexts)
+
+    print("\n---Evaluation Metrics ---")
+    print(f"Context precision score: {context_score}")
+    print(f"Response relevancy score: {relevancy_score}")
