@@ -8,6 +8,9 @@ from prod_assistant.utils.model_loader import ModelLoader
 from dotenv import load_dotenv
 from prod_assistant.utils.config_loader import load_config
 
+from langchain.retrievers.document_compressors import LLMChainFilter
+from langchain.retrievers import ContextualCompressionRetriever
+
 
 class Retriever:
     def __init__(self):
@@ -37,10 +40,11 @@ class Retriever:
 
     def load_retriever(self):
         """
-        Initialize and return a retriever from AstraDB Vector Store.
+        Initialize and return a ContextualCompressionRetriever
+        wrapping an AstraDB Vector Store retriever with MMR search.
 
         Returns:
-            VectorStoreRetriever: A retriever instance for semantic search.
+            ContextualCompressionRetriever: A retriever instance for semantic search with compression.
         """
         if not self.vstore:
             collection_name = self.config['astra_db']['collection_name']
@@ -53,9 +57,24 @@ class Retriever:
             )
 
         if not self.retriever:
-            retriever_config = self.config.get("retriever", {})
-            top_k = retriever_config.get("top_k", 3)
-            self.retriever = self.vstore.as_retriever(search_kwargs={"k": top_k})
+            # --- Hard-coded MMR params ---
+            mmr_retriever = self.vstore.as_retriever(
+                search_type='mmr',
+                search_kwargs={
+                    "k": 3,  # final top_k docs
+                    "lambda_mult": 0.7,  # relevance vs diversity tradeoff
+                    "fetch_k": 20,  # initial candidate pool
+                    "score_threshold": 0.3  # min similarity filter
+                }
+            )
+
+            llm = self.model_loader.load_llm()
+            compressor = LLMChainFilter.from_llm(llm)
+
+            self.retriever = ContextualCompressionRetriever(
+                base_compressor=compressor,
+                base_retriever=mmr_retriever
+            )
 
         return self.retriever
 
