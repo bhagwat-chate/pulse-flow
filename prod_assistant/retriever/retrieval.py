@@ -61,10 +61,10 @@ class Retriever:
             mmr_retriever = self.vstore.as_retriever(
                 search_type='mmr',
                 search_kwargs={
-                    "k": 3,  # final top_k docs
-                    "lambda_mult": 0.7,  # relevance vs diversity tradeoff
+                    "k": 5,  # final top_k docs
+                    "lambda_mult": 0.5,  # relevance vs diversity tradeoff
                     "fetch_k": 20,  # initial candidate pool
-                    "score_threshold": 0.3  # min similarity filter
+                    "score_threshold": 0.0  # min similarity filter
                 }
             )
 
@@ -94,6 +94,8 @@ class Retriever:
 
 if __name__ == '__main__':
     retriever_obj = Retriever()
-    user_query = "iPhone 15"
-    output = retriever_obj.call_retriever(user_query)
-    print(output)
+    user_query = "iPhone 15 plus?"
+    results = retriever_obj.call_retriever(user_query)
+
+    for idx, doc in enumerate(results, 1):
+        print(f"Result {idx}: {doc.page_content}\nMetadata: {doc.metadata}\n")
