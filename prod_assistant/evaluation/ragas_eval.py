@@ -50,12 +50,3 @@ def evaluate_response_relevancy(query, response, retrieved_context):
         return asyncio.run(main())
     except Exception as e:
         return e
-
-
-class Retriever:
-    def call_retriever(self, query):
-        retriever = load
-
-
-if __name__ == '__main__':
-    retriever_obj = Retr
