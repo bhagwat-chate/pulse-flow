@@ -9,6 +9,7 @@ from langgraph.graph import StateGraph
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
+from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
 
 from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
@@ -113,6 +114,25 @@ class AgenticRAG:
 
         return {"messages": [HumanMessage(content=new_q.content)]}
 
+    def _evaluate(self, state: AgenticState):
+        print("---EVALUATOR---")
+
+        question = state['messages'][0].content
+        docs = state['messages'][-2].content  # context from retriever
+        response = state['messages'][-1].content  # generated answer
+
+        # Evaluate with RAGAS
+        context_score = evaluate_context_precision(question, response, [docs])
+        relevancy_score = evaluate_response_relevancy(question, response, [docs])
+
+        evaluation_report = (
+            f"Evaluation Results:\n"
+            f"- Context Precision: {context_score}\n"
+            f"- Response Relevancy: {relevancy_score}"
+        )
+
+        return {"messages": [AIMessage(content=evaluation_report)]}
+
     def _build_workflow(self):
 
         workflow = StateGraph(self.AgenticState)
@@ -121,6 +141,7 @@ class AgenticRAG:
         workflow.add_node("Retriever", self._vector_retriever)
         workflow.add_node("Generator", self._generate)
         workflow.add_node("Rewriter", self._rewrite)
+        workflow.add_node("Evaluator", self._evaluate)  # new node
 
         workflow.add_edge(START, 'Assistant')
         workflow.add_conditional_edges(
@@ -134,16 +155,26 @@ class AgenticRAG:
             self._grade_documents,
             {"generator": "Generator", "rewriter": "Rewriter"}
         )
-        workflow.add_edge("Generator", END)
+
+        # After answer generation → go to evaluation
+        workflow.add_edge("Generator", "Evaluator")
+        workflow.add_edge("Evaluator", "Assistant")
+        workflow.add_edge("Assistant", END)
         workflow.add_edge("Rewriter", "Assistant")
 
         return workflow
 
     def run(self, query: str, thread_id: str = "default_thread") -> str:
         """Run the workflow for a given query and return the final answer."""
-        result = self.app.invoke({"messages": [HumanMessage(content=query)]},
-                                 config={"configurable": {"thread_id": thread_id}})
-        return result["messages"][-1].content
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]}, config={"configurable": {"thread_id": thread_id}})
+        # return result["messages"][-1].content
+
+        # Generator output (second-to-last message)
+        final_answer = result["messages"][-2].content
+        # Evaluation results (last message)
+        evaluation = result["messages"][-1].content
+
+        return f"{final_answer}\n\n{evaluation}"
 
 
 if __name__ == '__main__':
@@ -151,3 +182,4 @@ if __name__ == '__main__':
     agent = AgenticRAG()
     response = agent.run(query=query, thread_id='BHAGWAT_CHATE')
     print(f"Q: {query}\nA: {response}")
+
