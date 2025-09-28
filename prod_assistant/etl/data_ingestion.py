@@ -23,7 +23,7 @@ class DataIngestion:
     def _load_env_variables(self):
         load_dotenv()
 
-        required_vars = ['OPENAI_API_KEY', 'GOOGLE_API_KEY', 'ASTRA_DB_ENDPOINT', 'ASTRA_DB_APPLICATION_TOKEN', 'ASTRA_DB_KEYSPACE']
+        required_vars = ['OPENAI_API_KEY', 'GOOGLE_API_KEY', 'ASTRA_DB_API_ENDPOINT', 'ASTRA_DB_APPLICATION_TOKEN', 'ASTRA_DB_KEYSPACE']
         missing_vars = [var for var in required_vars if os.getenv(var) is None]
 
         if missing_vars:
@@ -31,7 +31,7 @@ class DataIngestion:
 
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.google_api_key = os.getenv('GOOGLE_API_KEY')
-        self.db_api_endpoint = os.getenv('ASTRA_DB_ENDPOINT')
+        self.db_api_endpoint = os.getenv('ASTRA_DB_API_ENDPOINT')
         self.db_application_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
         self.db_keyspace = os.getenv('ASTRA_DB_KEYSPACE')
 

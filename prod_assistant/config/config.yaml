@@ -2,11 +2,20 @@ astra_db:
   collection_name: "pulseflow_data"
 
 embedding_model:
-  provider: "google"
-  model_name: "models/text-embedding-004"
+  provider: "openai"
+  model_name: "text-embedding-3-large"
 
 retriever:
-  top_k: 10
+  search_type: "mmr"      # strictly enforce MMR
+  top_k: 10               # number of final results
+  fetch_k: 30             # candidate pool size
+  lambda_mult: 0.5        # balance between diversity & relevance
+#  score_threshold: 0.8   # keep all results (can set e.g. 0.2 to filter weak matches)
+
+  # optional compression (still OFF unless explicitly enabled)
+  use_compression: false
+  compression_type: "embeddings"   # only relevant if use_compression: true
+  similarity_threshold: 0.25
 
 llm:
   groq:

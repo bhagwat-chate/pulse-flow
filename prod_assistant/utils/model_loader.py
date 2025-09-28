@@ -13,6 +13,7 @@ from prod_assistant.utils.api_key_manager import ApiKeyManager
 from dotenv import load_dotenv
 from prod_assistant.logger import GLOBAL_LOGGER as log
 from prod_assistant.exception.custom_exception import ProductAssistantException
+from langchain_openai import OpenAIEmbeddings
 
 
 class ModelLoader:
@@ -30,21 +31,30 @@ class ModelLoader:
 
     def load_embeddings(self):
         try:
+            provider = self.config["embedding_model"].get("provider", "openai").lower()
             model_name = self.config["embedding_model"]['model_name']
-            log.info("loading embedding model", model=model_name)
+            log.info("loading embedding model", provider=provider, model=model_name)
 
-            # patch: ensure an event loop exists for gRPC aio
+            # Ensure event loop exists (for Google gRPC clients)
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-            return GoogleGenerativeAIEmbeddings(
-                model=model_name,
-                google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY")
-            )
+            if provider == "google":
+                return GoogleGenerativeAIEmbeddings(
+                    model=model_name,
+                    google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY")
+                )
+            elif provider == "openai":
+                return OpenAIEmbeddings(
+                    model=model_name,
+                    api_key=self.api_key_mgr.get("OPENAI_API_KEY")
+                )
+            else:
+                raise ValueError(f"Unsupported embedding provider: {provider}")
 
-        except ProductAssistantException as e:
+        except Exception as e:
             log.error("Error in embedding model load", error=str(e))
             raise ProductAssistantException("failed to load embedding model", sys)
 
