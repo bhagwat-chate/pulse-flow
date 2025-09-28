@@ -1,4 +1,4 @@
-# file path: prod_assistant/mcp_servers/product_search_server.py
+# prod_assistant/mcp_servers/product_search_server.py
 
 from mcp.server.fastmcp import FastMCP
 from prod_assistant.retriever.retrieval import Retriever
@@ -7,94 +7,90 @@ from langchain_community.tools import DuckDuckGoSearchRun
 # Initialize MCP server
 mcp = FastMCP("hybrid_search")
 
-# Local retriever (vector DB / hybrid search)
+# Load retriever once
 retriever_obj = Retriever()
 retriever = retriever_obj.load_retriever()
 
-# Web search fallback
+# LangChain DuckDuckGo tool
 duckduckgo = DuckDuckGoSearchRun()
 
-
 def format_docs(docs) -> str:
-    """
-    Format retriever documents into a human-readable context block.
-
-    Args:
-        docs (list): A list of Document objects returned by retriever.
-
-    Returns:
-        str: Concatenated and formatted product information, including
-             title, price, rating, and snippet of reviews.
-    """
+    """Format retriever docs into readable context."""
     if not docs:
         return ""
-
     formatted_chunks = []
-
     for d in docs:
         meta = d.metadata or {}
         formatted = (
             f"Title: {meta.get('product_title', 'N/A')}\n"
             f"Price: {meta.get('price', 'N/A')}\n"
             f"Rating: {meta.get('rating', 'N/A')}\n"
-            f"Reviews: {d.page_content.strip()}"
+            f"Reviews:\n{d.page_content.strip()}"
         )
         formatted_chunks.append(formatted)
-
     return "\n\n---\n\n".join(formatted_chunks)
 
 
 @mcp.tool()
 async def get_product_info(query: str) -> str:
     """
-    MCP Tool: Retrieve product information from local retriever.
+    LLM Tool: Retrieve structured product information from the local vector retriever.
 
-    This tool queries the local hybrid retriever (vector database / indexed
-    product corpus) for relevant product details. If documents are found,
-    they are formatted into a structured block showing title, price, rating,
-    and reviews.
+    This tool is designed to be called by an LLM agent (e.g., LangChain, LangGraph, MCP client)
+    when the model detects the user is asking about a product (e.g., "iPhone 15 Plus reviews",
+    "Samsung Galaxy price", "Suggest me washing machine under 50,000 INR").
+
+    Behavior:
+      - Runs a semantic vector search (MMR) over the AstraDB collection.
+      - Returns formatted product information (title, price, rating, reviews).
+      - If no results are found, returns "No local results found." so that the
+        calling LLM can decide to fallback to `web_search`.
 
     Args:
-        query (str): User's product search query.
+        query (str): Natural language product search query from the user.
 
     Returns:
-        str: Formatted product details if available, or a notice indicating
-             no local results and suggesting fallback to web search.
+        str: Human-readable product details (multi-line text). This string is
+             intended for direct injection into the LLM's context or response.
 
-    Example:
-        # await get_product_info("iPhone 15 price")
-        # "Title: iPhone 15 Pro\nPrice: $999\nRating: 4.7\nReviews: Excellent camera..."
+    Usage in an LLM pipeline:
+        - Call this tool when the user asks for product prices, reviews, or comparisons.
+        - If the response contains "No local results found.", call the `web_search` tool.
     """
     try:
         docs = retriever.invoke(query)
         context = format_docs(docs)
-
         if not context.strip():
             return "No local results found."
-
         return context
-
     except Exception as e:
-        return f"Error retrieving product info: {e}"
+        return f"Error retrieving product info: {str(e)}"
 
 
 @mcp.tool()
 async def web_search(query: str) -> str:
     """
-    MCP Tool: Perform a live web search for product information.
+    LLM Tool: Perform a live web search for product information.
 
-    This tool uses DuckDuckGo search to retrieve up-to-date product
-    information when local retriever results are insufficient.
+    This tool is intended as a fallback when `get_product_info` returns
+    "No local results found." or when the LLM determines the user query
+    is outside the scope of the local vector database.
+
+    Behavior:
+      - Executes a DuckDuckGo search for the given query.
+      - Returns raw text snippets of results (titles, descriptions, context).
+      - Provides up-to-date product information beyond the static local corpus.
 
     Args:
-        query (str): User's product search query.
+        query (str): Natural language product search query from the user.
 
     Returns:
-        str: Raw text output from DuckDuckGo search results.
+        str: Web search result snippets. This may be noisy, so the calling LLM
+             is responsible for summarizing, filtering, or reasoning over it.
 
-    Example:
-        # await web_search("latest MacBook Air M3 price")
-        # "Apple MacBook Air M3 – starting at $1199..."
+    Usage in an LLM pipeline:
+        - Call when local retrieval fails or when freshness/coverage requires web lookup.
+        - Use results to enrich or cross-check responses with the latest market data.
     """
     try:
         return duckduckgo.run(query)
@@ -102,5 +98,6 @@ async def web_search(query: str) -> str:
         return f"Error during web search: {str(e)}"
 
 
+# ---------- Run Server ----------
 if __name__ == "__main__":
     mcp.run(transport="stdio")
