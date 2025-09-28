@@ -1,6 +1,5 @@
-# file path: hybrid_search.py
+# file path: prod_assistant/mcp_servers/product_search_server.py
 
-from typing import Any
 from mcp.server.fastmcp import FastMCP
 from prod_assistant.retriever.retrieval import Retriever
 from langchain_community.tools import DuckDuckGoSearchRun
@@ -71,7 +70,7 @@ async def get_product_info(query: str) -> str:
         context = format_docs(docs)
 
         if not context.strip():
-            return "No local results found, need to go for web search."
+            return "No local results found."
 
         return context
 
