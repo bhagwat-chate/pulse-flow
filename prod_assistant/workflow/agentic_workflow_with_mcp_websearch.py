@@ -68,3 +68,20 @@ class AgenticRAG:
 
         return {"messages": [HumanMessage(content=context)]}
 
+    def _grade_documents(self, state: AgentState) -> Literal["generator", "rewriter"]:
+        print("---GRADER---")
+        question = state['messages'][0].content
+        docs = state['messages'][-1].content
+
+        prompt = PromptTemplate(
+            template="""You area a grader. Question: {question}\nDocs: {docs}\nAre docs relevant to the question? 
+            Answer yes or no""",
+            input_variables=['question', 'docs']
+        )
+
+        chain = prompt | self.llm | StrOutputParser()
+
+        score = chain.invoke({"question": question, "docs": docs})
+
+        return "generator" if "yes" in score.lower() else "rewriter"
+
