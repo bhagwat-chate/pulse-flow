@@ -56,5 +56,15 @@ class AgenticRAG:
         tool = next(t for t in self.mcp_tools if t.name == 'get_product_info')
         result = asyncio.run(tool.ainvoke({"query": query}))
         context = result if result else "No data"
+
+        return {"messages": [HumanMessage(content=context)]}
+
+    def _web_search(self, state: AgentState):
+        print("---WEB SEARCH---")
+        query = state['messages'][0].content
+        tool = any(t for t in self.mcp_tools if t.name == 'web_search')
+        result = asyncio.run(tool.ainvoke({"query": query}))
+        context = result if result else "No data from web"
+
         return {"messages": [HumanMessage(content=context)]}
 
