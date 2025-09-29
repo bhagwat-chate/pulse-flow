@@ -35,3 +35,18 @@ class AgenticRAG:
         self.workflow = self._build_workflow()
         self.app = self.workflow.compile(checkpointer=self.checkpointer)
 
+    def _ai_assistant(self, state: AgentState):
+        print("---ASSISTANT---")
+        messages = state['messages'][-1].content
+
+        if any(word in messages.lower() for word in ['price', 'review', 'product']):
+            return {"messages": [HumanMessage(content="TOOL: retriever")]}
+        else:
+            prompt = ChatPromptTemplate.from_messages(
+                "You are a helpful assistant. Answer the user directly. \nQuestion:{question}\nAnswer:"
+            )
+            chain = prompt | self.llm | StrOutputParser()
+            response = chain.invoke({"question": messages})
+
+            return {"messages": [HumanMessage(content=response)]}
+
