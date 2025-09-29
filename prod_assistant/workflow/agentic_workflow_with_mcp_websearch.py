@@ -111,3 +111,27 @@ class AgenticRAG:
         new_q = chain.invoke({"question": question})
 
         return {"messages": [HumanMessage(content=new_q.strip())]}
+
+    def _build_workflow(self):
+
+        workflow = StateGraph(self.AgentState)
+
+        workflow.add_node("Assistant", self._ai_assistant)
+        workflow.add_node("Retriever", self._vector_retriever)
+        workflow.add_node("Generator", self._generate)
+        workflow.add_node("Rewriter", self._rewrite)
+        workflow.add_node("WebSearch", self._web_search)
+
+        workflow.add_edge(START, "Assistant")
+        workflow.add_conditional_edges(
+            "Assistant",
+            lambda state: "Retriever" if "TOOL" in state['messages'][-1].content else END,
+            {"Retriever": "Retriever", END: END}
+        )
+
+        workflow.add_edge("Generator", END)
+        workflow.add_edge("Rewriter", "WebSearch")
+        workflow.add_edge("WebSearch", "Assistant")
+        workflow.add_edge("Assistant", END)
+
+        return workflow
