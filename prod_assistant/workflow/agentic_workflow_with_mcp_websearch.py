@@ -135,3 +135,20 @@ class AgenticRAG:
         workflow.add_edge("Assistant", END)
 
         return workflow
+
+    def run(self, query: str, thread_id: str = "default_thread") -> str:
+
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]},
+                                 config={"configurable": {"thread_id": thread_id}})
+        return result["messages"][-1].content
+
+
+if __name__ == '__main__':
+    query = "What is the price of iPhone 15 plus"
+
+    rag_agent = AgenticRAG()
+
+    answer = rag_agent.run(query=query, thread_id='"BHAGWAT_CHATE')
+
+    print(f"Query: {query}")
+    print(f"Answer: {answer}")
