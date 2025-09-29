@@ -99,3 +99,15 @@ class AgenticRAG:
 
         return {"messages": [HumanMessage(content=response)]}
 
+    def _rewrite(self, state: AgentState):
+        print("---REWRITE---")
+        question = state['messages'][0].content
+        prompt = ChatPromptTemplate.from_template(
+            "Rewrite this user query to make it more clear and specific for a search engine. "
+            "Do not answer the query. Only rewrite it.\n\nQuery: {question}\nRewritten Query:"
+        )
+
+        chain = prompt | self.llm | StrOutputParser()
+        new_q = chain.invoke({"question": question})
+
+        return {"messages": [HumanMessage(content=new_q.strip())]}
