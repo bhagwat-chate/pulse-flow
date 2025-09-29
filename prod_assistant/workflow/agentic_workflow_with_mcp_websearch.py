@@ -50,3 +50,11 @@ class AgenticRAG:
 
             return {"messages": [HumanMessage(content=response)]}
 
+    def _vector_retriever(self, state: AgentState):
+        print("---RETRIEVER (MCP)---")
+        query = state['messages'][0].content
+        tool = next(t for t in self.mcp_tools if t.name == 'get_product_info')
+        result = asyncio.run(tool.ainvoke({"query": query}))
+        context = result if result else "No data"
+        return {"messages": [HumanMessage(content=context)]}
+
