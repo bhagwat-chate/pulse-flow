@@ -22,8 +22,8 @@ async def main():
 
     # --- Step 1: Try retriever first ---
     # query = "Samsung Galaxy S25 price"
-    # query = "iPhone 15 Plus reviews and price"
-    query = "What is the price of iPhone 15?"
+    query = "iPhone 15 Plus reviews and price"
+    # query = "What is the price of iPhone 15?"
     print(f"[query]: {query}")
 
     retriever_result = await retriever_tool.ainvoke({"query": query})

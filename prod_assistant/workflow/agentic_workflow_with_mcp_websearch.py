@@ -28,9 +28,9 @@ class AgenticRAG:
 
         # MCP Client Init
         self.mcp_client = MultiServerMCPClient({
-            "hybrid_search": {
+            "product_retriever": {
                 "command": "python",
-                "args": ["-m", "prod_assistant.mcp_servers.product_search_server"],
+                "args": ["E:\LLMOps\pulse-flow\prod_assistant\mcp_servers\product_search_server.py"],
                 "transport": "stdio"
             }
         })
@@ -55,7 +55,6 @@ class AgenticRAG:
             chain = prompt | self.llm | StrOutputParser()
             response = chain.invoke({"question": last_message})
             return {"messages": [HumanMessage(content=response)]}
-
 
 
     def _vector_retriever(self, state: AgentState):
@@ -110,7 +109,6 @@ class AgenticRAG:
         new_q = chain.invoke({"question": question})
         return {"messages": [HumanMessage(content=new_q.strip())]}
 
-
     # ---------- Build Workflow ----------
     def _build_workflow(self):
         workflow = StateGraph(self.AgentState)
@@ -150,5 +148,5 @@ class AgenticRAG:
 
 if __name__ == "__main__":
     rag_agent = AgenticRAG()
-    answer = rag_agent.run("What is the price of iPhone 15?")
+    answer = rag_agent.run("What is the price of iPhone 15 plus?")
     print("\nFinal Answer:\n", answer)
