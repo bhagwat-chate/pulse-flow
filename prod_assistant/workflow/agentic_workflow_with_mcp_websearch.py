@@ -1,3 +1,5 @@
+# prod_assistant/workflow/agentic_workflow_with_mcp_websearch.py
+
 from typing import Annotated, Sequence, TypedDict, Literal
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
@@ -28,9 +30,9 @@ class AgenticRAG:
 
         # MCP Client Init
         self.mcp_client = MultiServerMCPClient({
-            "product_retriever": {
+            "hybrid_search": {
                 "command": "python",
-                "args": ["E:\LLMOps\pulse-flow\prod_assistant\mcp_servers\product_search_server.py"],
+                "args": ["prod_assistant/mcp_servers/product_search_server.py"],  # server with retriever+websearch
                 "transport": "stdio"
             }
         })
@@ -56,7 +58,6 @@ class AgenticRAG:
             response = chain.invoke({"question": last_message})
             return {"messages": [HumanMessage(content=response)]}
 
-
     def _vector_retriever(self, state: AgentState):
         print("--- RETRIEVER (MCP) ---")
         query = state["messages"][-1].content
@@ -73,7 +74,7 @@ class AgenticRAG:
         context = result if result else "No data from web"
         return {"messages": [HumanMessage(content=context)]}
 
-    def _grade_documents(self, state: AgentState) -> Literal["generator", "rewriter"]:
+    def _grade_documents(self, state: AgentState) -> str:
         print("--- GRADER ---")
         question = state["messages"][0].content
         docs = state["messages"][-1].content
@@ -85,7 +86,8 @@ class AgenticRAG:
         )
         chain = prompt | self.llm | StrOutputParser()
         score = chain.invoke({"question": question, "docs": docs})
-        return "generator" if "yes" in score.lower() else "rewriter"
+
+        return "Generator" if "yes" in score.lower() else "WebSearch"
 
     def _generate(self, state: AgentState):
         print("--- GENERATE ---")
@@ -112,29 +114,45 @@ class AgenticRAG:
     # ---------- Build Workflow ----------
     def _build_workflow(self):
         workflow = StateGraph(self.AgentState)
+
+        # Define nodes
         workflow.add_node("Assistant", self._ai_assistant)
+        workflow.add_node("Rewriter", self._rewrite)
         workflow.add_node("Retriever", self._vector_retriever)
         workflow.add_node("Generator", self._generate)
-        workflow.add_node("Rewriter", self._rewrite)
         workflow.add_node("WebSearch", self._web_search)
 
+        # Start → Assistant
         workflow.add_edge(START, "Assistant")
+
+        # Assistant → Rewriter (if TOOL) or END (direct answer)
         workflow.add_conditional_edges(
             "Assistant",
-            lambda state: "Retriever" if "TOOL" in state["messages"][-1].content else END,
-            {"Retriever": "Retriever", END: END},
+            lambda state: "Rewriter" if "TOOL" in state["messages"][-1].content else END,
+            {
+                "Rewriter": "Rewriter",
+                END: END
+            },
         )
+
+        # Rewriter → Retriever
+        workflow.add_edge("Rewriter", "Retriever")
+
+        # Retriever → Generator (if relevant) or WebSearch (if not relevant)
         workflow.add_conditional_edges(
             "Retriever",
-            self._grade_documents,
-            {"generator": "Generator", "rewriter": "Rewriter"},
+            self._grade_documents,  # returns "Generator" or "WebSearch"
+            {
+                "Generator": "Generator",
+                "WebSearch": "WebSearch"
+            },
         )
-        workflow.add_edge("Generator", END)
 
-        # New path: Rewriter → WebSearch → END
-        workflow.add_edge("Rewriter", "WebSearch")
-        workflow.add_edge("WebSearch", "Assistant")
-        workflow.add_edge("Assistant", END)
+        # WebSearch → Generator
+        workflow.add_edge("WebSearch", "Generator")
+
+        # Generator → END
+        workflow.add_edge("Generator", END)
 
         return workflow
 
@@ -148,5 +166,7 @@ class AgenticRAG:
 
 if __name__ == "__main__":
     rag_agent = AgenticRAG()
-    answer = rag_agent.run("What is the price of iPhone 15 plus?")
+    query = "What is the current temperature in Pune city, India?"
+    print(f"[query] {query}")
+    answer = rag_agent.run(query)
     print("\nFinal Answer:\n", answer)

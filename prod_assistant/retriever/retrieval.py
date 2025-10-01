@@ -60,7 +60,7 @@ class Retriever:
                                "lambda_mult": 0.7,
                                "score_threshold": 0.6
                                })
-            print("Retriever loaded successfully.")
+            # print("Retriever loaded successfully.")
 
             llm = self.model_loader.load_llm()
 
