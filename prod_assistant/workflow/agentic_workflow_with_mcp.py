@@ -17,70 +17,74 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
 class AgenticRAG:
+    """Agentic RAG pipeline using LangGraph."""
 
     class AgentState(TypedDict):
         messages: Annotated[Sequence[BaseMessage], add_messages]
 
     def __init__(self):
-        # Core components
         self.retriever_obj = Retriever()
-        self.model_loader_obj = ModelLoader()
-        self.llm = self.model_loader_obj.load_llm()
+        self.model_loader = ModelLoader()
+        self.llm = self.model_loader.load_llm()
         self.checkpointer = MemorySaver()
 
-        # MCP client setup
+        # MCP Client Init
         self.mcp_client = MultiServerMCPClient({
             "product_retriever": {
                 "command": "python",
-                "args": ["-m", "prod_assistant.mcp_servers.product_search_server"],
+                "args": ["prod_assistant/mcp_servers/product_search_server.py"],  # absolute path recommended
                 "transport": "stdio"
             }
         })
-
-        # Load all available MCP tools
+        # Load MCP tools (async ko sync wrapper me call karna hoga)
         self.mcp_tools = asyncio.run(self.mcp_client.get_tools())
 
-        # Compile workflow
         self.workflow = self._build_workflow()
         self.app = self.workflow.compile(checkpointer=self.checkpointer)
 
-    # ------------------------- NODES --------------------
-    def _ai_assistants(self, state: AgentState):
-        """Decides whether to call retriever tool or answer directly."""
-        print("---CALL ASSISTANT---")
-        messages = state['messages']
+    # ---------- Helpers ----------
+    def _format_docs(self, docs) -> str:
+        if not docs:
+            return "No relevant documents found."
+        formatted_chunks = []
+        for d in docs:
+            meta = d.metadata or {}
+            formatted = (
+                f"Title: {meta.get('product_title', 'N/A')}\n"
+                f"Price: {meta.get('price', 'N/A')}\n"
+                f"Rating: {meta.get('rating', 'N/A')}\n"
+                f"Reviews:\n{d.page_content.strip()}"
+            )
+            formatted_chunks.append(formatted)
+        return "\n\n---\n\n".join(formatted_chunks)
+
+    # ---------- Nodes ----------
+    def _ai_assistant(self, state: AgentState):
+        print("--- CALL ASSISTANT ---")
+        messages = state["messages"]
         last_message = messages[-1].content
 
-        if any(word in last_message.lower() for word in ['price', 'review', 'product']):
+        if any(word in last_message.lower() for word in ["price", "review", "product"]):
             return {"messages": [HumanMessage(content="TOOL: retriever")]}
         else:
             prompt = ChatPromptTemplate.from_template(
-                "You are a helpful assistant. Answer the user directly.\n\n"
-                "Question: {question}\nAnswer: "
+                "You are a helpful assistant. Answer the user directly.\n\nQuestion: {question}\nAnswer:"
             )
             chain = prompt | self.llm | StrOutputParser()
             response = chain.invoke({"question": last_message})
             return {"messages": [HumanMessage(content=response)]}
 
     def _vector_retriever(self, state: AgentState):
-        """Call MCP retriever. Fallback to web_search if no local results."""
-        print("---RETRIEVER (MCP)---")
-        query = state['messages'][-1].content
+        print("--- RETRIEVER (MCP) ---")
+        query = state["messages"][-1].content
+        # Find the tool by name
+        tool = next(t for t in self.mcp_tools if t.name == "get_product_info")
+        # Call the tool (sync wrapper)
+        result = asyncio.run(tool.ainvoke({"query": query}))
+        context = result if result else "No data"
+        return {"messages": [HumanMessage(content=context)]}
 
-        # Get tools
-        get_product_info = next(t for t in self.mcp_tools if t.name == 'get_product_info')
-        web_search = next(t for t in self.mcp_tools if t.name == 'web_search')
-
-        # Call retriever
-        result = asyncio.run(get_product_info.ainvoke({"query": query}))
-        if "No local results found." in result:
-            print("No local results, falling back to web_search...")
-            result = asyncio.run(web_search.ainvoke({"query": query}))
-
-        return {"messages": [HumanMessage(content=result)]}
-
-    def _grade_documents(self, state: AgentState) -> Literal["Generator", "Rewriter"]:
-        """Grade docs: relevant → Generator, else → Rewriter."""
+    def _grade_documents(self, state: AgentState) -> Literal["generator", "rewriter"]:
         print("--- GRADER ---")
         question = state["messages"][0].content
         docs = state["messages"][-1].content
@@ -92,76 +96,62 @@ class AgenticRAG:
         )
         chain = prompt | self.llm | StrOutputParser()
         score = chain.invoke({"question": question, "docs": docs})
-        return "Generator" if "yes" in score.lower() else "Rewriter"
+        return "generator" if "yes" in score.lower() else "rewriter"
 
     def _generate(self, state: AgentState):
-        """Generate final answer using context + question."""
-        print("---GENERATE---")
-        question = state['messages'][0].content
-        docs = state['messages'][-1].content
-
+        print("--- GENERATE ---")
+        question = state["messages"][0].content
+        docs = state["messages"][-1].content
         prompt = ChatPromptTemplate.from_template(
             PROMPT_REGISTRY[PromptType.PRODUCT_BOT].template
         )
         chain = prompt | self.llm | StrOutputParser()
         response = chain.invoke({"context": docs, "question": question})
-
-        return {"messages": HumanMessage(content=response)}
+        return {"messages": [HumanMessage(content=response)]}
 
     def _rewrite(self, state: AgentState):
-        """Rewrite query if docs are irrelevant."""
-        print("---REWRITE QUERY---")
-        question = state['messages'][0].content
+        print("--- REWRITE ---")
+        question = state["messages"][0].content
         prompt = ChatPromptTemplate.from_template(
-            "Rewrite this user query to make it more clear and specific for a search engine.\n"
-            "Do not answer the query. Only rewrite it.\n\nQuery:{question}\nRewritten Query:"
+            "Rewrite this user query to make it more clear and specific for a search engine. "
+            "Do NOT answer the query. Only rewrite it.\n\nQuery: {question}\nRewritten Query:"
         )
         chain = prompt | self.llm | StrOutputParser()
-        response = chain.invoke({'question': question})
-        return {"messages": HumanMessage(content=response)}
+        new_q = chain.invoke({"question": question})
+        return {"messages": [HumanMessage(content=new_q.strip())]}
 
-    # ------------------------- WORKFLOW --------------------
+    # ---------- Build Workflow ----------
     def _build_workflow(self):
         workflow = StateGraph(self.AgentState)
-
-        workflow.add_node("Assistant", self._ai_assistants)
+        workflow.add_node("Assistant", self._ai_assistant)
         workflow.add_node("Retriever", self._vector_retriever)
         workflow.add_node("Generator", self._generate)
         workflow.add_node("Rewriter", self._rewrite)
 
-        # Flow: START → Assistant
         workflow.add_edge(START, "Assistant")
-
-        # Assistant decides → Retriever or END
         workflow.add_conditional_edges(
             "Assistant",
-            lambda state: "Retriever" if "TOOL" in state['messages'][-1].content else END,
-            {"Retriever": "Retriever", END: END}
+            lambda state: "Retriever" if "TOOL" in state["messages"][-1].content else END,
+            {"Retriever": "Retriever", END: END},
         )
-
-        # Retriever → Generator / Rewriter
         workflow.add_conditional_edges(
             "Retriever",
             self._grade_documents,
-            {"Generator": "Generator", "Rewriter": "Rewriter"}
+            {"generator": "Generator", "rewriter": "Rewriter"},
         )
-
         workflow.add_edge("Generator", END)
         workflow.add_edge("Rewriter", "Assistant")
-
         return workflow
 
-    # ------------------------- RUN --------------------
-    def run(self, query: str, thread_id: str = 'default_thread') -> str:
-        """Run the workflow with a query."""
-        result = self.app.invoke(
-            {"messages": [HumanMessage(content=query)]},
-            config={"configurable": {'thread_id': thread_id}}
-        )
-        return result['messages'][-1].content
+    # ---------- Public Run ----------
+    def run(self, query: str, thread_id: str = "default_thread") -> str:
+        """Run the workflow for a given query and return the final answer."""
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]},
+                                 config={"configurable": {"thread_id": thread_id}})
+        return result["messages"][-1].content
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     rag_agent = AgenticRAG()
-    answer = rag_agent.run("What is the price of iPhone 15 plus?")
-    print(f"\nFinal Answer: {answer}")
+    answer = rag_agent.run("What is the price of iPhone 15?")
+    print("\nFinal Answer:\n", answer)

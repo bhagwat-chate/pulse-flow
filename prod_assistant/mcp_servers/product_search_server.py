@@ -14,6 +14,7 @@ retriever = retriever_obj.load_retriever()
 # LangChain DuckDuckGo tool
 duckduckgo = DuckDuckGoSearchRun()
 
+
 def format_docs(docs) -> str:
     """Format retriever docs into readable context."""
     if not docs:

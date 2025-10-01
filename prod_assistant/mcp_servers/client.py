@@ -3,6 +3,7 @@
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
+
 async def main():
     client = MultiServerMCPClient({
         "hybrid_search": {
@@ -21,8 +22,8 @@ async def main():
     web_tool = next(t for t in tools if t.name == "web_search")
 
     # --- Step 1: Try retriever first ---
-    # query = "Samsung Galaxy S25 price"
-    query = "iPhone 15 Plus reviews and price"
+    query = "Samsung Galaxy S25 price"
+    # query = "iPhone 15 Plus reviews and price"
     # query = "What is the price of iPhone 15?"
     print(f"[query]: {query}")
 
@@ -34,6 +35,7 @@ async def main():
         print("\n No local results, falling back to web search...\n")
         web_result = await web_tool.ainvoke({"query": query})
         print("Web Search Result:\n", web_result)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
