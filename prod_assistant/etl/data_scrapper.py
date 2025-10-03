@@ -25,6 +25,7 @@ class FlipkartScraper:
         driver = uc.Chrome(options=options, use_subprocess=True)
 
         if not product_url.startswith("http"):
+            driver.quit()
             return "No reviews found"
 
         try:
@@ -105,7 +106,7 @@ class FlipkartScraper:
         """Save the scraped product reviews to a CSV file."""
         if os.path.isabs(filename):
             path = filename
-        elif os.path.dirname(filename):
+        elif os.path.dirname(filename):  # filename includes subfolder like 'data/product_reviews.csv'
             path = filename
             os.makedirs(os.path.dirname(path), exist_ok=True)
         else:
