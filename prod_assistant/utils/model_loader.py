@@ -1,17 +1,16 @@
-# prod_assistant/utils/model_loader.py
+# prod_assistant/core/secrets.py
 
 import os
 import sys
 import json
 from dotenv import load_dotenv
-from prod_assistant.utils.config_loader import load_config
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from prod_assistant.core.config.config_dev import get_config
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from prod_assistant.logger import GLOBAL_LOGGER as log
 from prod_assistant.exception.custom_exception import ProductAssistantException
-import asyncio
 
 
 class ApiKeyManager:
@@ -67,7 +66,7 @@ class ModelLoader:
             log.info("Running in PRODUCTION mode")
 
         self.api_key_mgr = ApiKeyManager()
-        self.config = load_config()
+        self.config = get_config()
         log.info("YAML config loaded", config_keys=list(self.config.keys()))
 
     def load_embeddings(self):

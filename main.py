@@ -1,10 +1,15 @@
-# E:\LLMOps\pulse-flow\prod_assistant\cli.py
+# main.py
 
 import sys
+from prod_assistant.core.bootstrap import bootstrap_app
 
 
 def main():
     """Entry point for the pulse-flow CLI."""
     print("🚀 Pulse-Flow is running!")
-    if sys.argv[1:]:
-        print("Args passed:", sys.argv[1:])
+
+    bootstrap_app()
+
+
+if __name__ == "__main__":
+    main()

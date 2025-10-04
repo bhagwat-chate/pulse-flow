@@ -1,0 +1,16 @@
+# prod_assistant/config/config_prod.yaml
+
+app:
+  name: pulseflow
+  env: prod
+  port: 8080
+
+llm:
+  provider: openai
+  model: ${OPENAI_API_KEY}        # read from AWS Secrets Manager
+  embedding_model: ${EMBED_MODEL}
+
+astra:
+  db_id: ${ASTRA_DB_ID}
+  keyspace: ${ASTRA_DB_KEYSPACE}
+  token: ${ASTRA_DB_APPLICATION_TOKEN}

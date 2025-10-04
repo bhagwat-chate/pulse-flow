@@ -2,7 +2,7 @@
 
 import os
 from langchain_astradb import AstraDBVectorStore
-from prod_assistant.utils.config_loader import load_config
+from prod_assistant.core.config.config_dev import get_config
 from prod_assistant.utils.model_loader import ModelLoader
 from dotenv import load_dotenv
 from langchain.retrievers.document_compressors import LLMChainFilter
@@ -19,7 +19,7 @@ class Retriever:
         """_summary_
         """
         self.model_loader = ModelLoader()
-        self.config = load_config()
+        self.config = get_config()
         self._load_env_variables()
         self.vstore = None
         self.retriever_instance = None

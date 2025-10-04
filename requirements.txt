@@ -107,7 +107,7 @@ pandas==2.3.2
 parso==0.8.5
 pillow==11.3.0
 platformdirs==4.4.0
-playwright==1.55.0
+playwright
 primp==0.15.0
 prompt-toolkit==3.0.52
 propcache==0.3.2
@@ -126,7 +126,7 @@ pydeck==0.9.1
 pyee==11.1.1
 pygments==2.19.2
 pymongo==4.15.1
-pyppeteer==2.0.0
+pyppeteer
 pysocks==1.7.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
@@ -179,9 +179,10 @@ watchdog==6.0.0
 wcwidth==0.2.14
 webencodings==0.5.1
 websocket-client==1.8.0
-websockets==15.0.1
+websockets
 wsproto==1.2.0
 xxhash==3.5.0
 yarl==1.20.1
 zipp==3.23.0
 zstandard==0.25.0
+boto3

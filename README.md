@@ -99,17 +99,17 @@ pulse-flow/
 │   └── experiment.ipynb
 ├── prod_assistant
 │   ├── config
-│   │   └── config.yaml
+│   │   └── config_base.yaml
 │   ├── etl
 │   │   ├── data_ingestion.py
 │   │   └── data_scrapper.py
 │   ├── exception
 │   │   └── custom_exception.py
 │   ├── logger
-│   │   └── custom_logger.py
+│   │   └── logger.py
 │   └── utils
-│       ├── api_key_manager.py
-│       ├── config_loader.py
+│       ├── secrets.py
+│       ├── config_dev.py
 │       └── model_loader.py
 ├── pyproject.toml
 ├── requirements.txt

@@ -8,7 +8,7 @@ from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_astradb import AstraDBVectorStore
 from prod_assistant.utils.model_loader import ModelLoader
-from prod_assistant.utils.config_loader import load_config
+from prod_assistant.core.config.config_dev import get_config
 
 
 class DataIngestion:
@@ -18,7 +18,7 @@ class DataIngestion:
         self._load_env_variables()
         self.csv_path = self._get_csv_path()
         self.product_data = self._load_csv()
-        self.config = load_config()
+        self.config = get_config()
 
     def _load_env_variables(self):
         load_dotenv()

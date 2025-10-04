@@ -1,8 +1,8 @@
 # prod_assistant/core/globals.py
 
 """
-Central registry for app-wise singletons like config, cache, logger.
-Ensure they are initialized once and reused everywhere.
+Central registry for app-wide singletons like config, logger, and cache.
+Ensures they are initialized once and reused everywhere.
 """
 
 from typing import Optional, Any
@@ -12,9 +12,9 @@ LOGGER: Optional[Any] = None
 CACHE: Optional[Any] = None
 
 
-def set_config(cng):
+def set_config(cfg):  # called once at bootstrap
     global CONFIG
-    CONFIG = cng
+    CONFIG = cfg
 
 
 def get_config():

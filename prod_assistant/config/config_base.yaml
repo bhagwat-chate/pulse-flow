@@ -1,3 +1,5 @@
+# prod_assistant/config/config_base.yaml
+
 astra_db:
   collection_name: "ecommercedata"
 
