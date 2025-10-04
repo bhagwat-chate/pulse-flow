@@ -1,18 +1,16 @@
 astra_db:
-  collection_name: "pulseflow_data"
+  collection_name: "ecommercedata"
 
+#embedding_model:
+#  provider: "google"
+#  model_name: "models/text-embedding-004"
 embedding_model:
   provider: "openai"
+  dimensions: 3072
   model_name: "text-embedding-3-large"
 
 retriever:
-  search_type: "similarity"
   top_k: 10
-  fetch_k: 30
-  lambda_mult: 0.5
-  use_compression: false
-  compression_type: "embeddings"
-  similarity_threshold: 0.25
 
 llm:
   groq:
@@ -28,7 +26,6 @@ llm:
     max_output_tokens: 2048
 
   openai:
-    provider: "openai"
-    model_name: "gpt-4o"
-    temperature: 0
-    max_output_tokens: 2048
+     provider: "openai"
+     model_name: "gpt-4o"
+     temperature: 0

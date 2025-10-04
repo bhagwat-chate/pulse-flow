@@ -1,5 +1,3 @@
-# prod_assistant/evaluation/ragas_eval.py
-
 import asyncio
 from prod_assistant.utils.model_loader import ModelLoader
 from ragas import SingleTurnSample

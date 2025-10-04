@@ -8,7 +8,7 @@ async def main():
     client = MultiServerMCPClient({
         "hybrid_search": {
             "command": "python",
-            "args": ["-m", "prod_assistant.mcp_servers.product_search_server"],
+            "args": [r"E:\LLMOps\pulse-flow\prod_assistant\mcp_servers\product_search_server.py"],
             "transport": "stdio",
         }
     })
@@ -22,11 +22,9 @@ async def main():
     web_tool = next(t for t in tools if t.name == "web_search")
 
     # --- Step 1: Try retriever first ---
-    query = "Samsung Galaxy S25 price"
-    # query = "iPhone 15 Plus reviews and price"
-    # query = "What is the price of iPhone 15?"
-    print(f"[query]: {query}")
-
+    #query = "Samsung Galaxy S25 price"
+    # query = "iPhone 15"
+    query = "iPhone 17?"
     retriever_result = await retriever_tool.ainvoke({"query": query})
     print("\nRetriever Result:\n", retriever_result)
 
@@ -35,7 +33,6 @@ async def main():
         print("\n No local results, falling back to web search...\n")
         web_result = await web_tool.ainvoke({"query": query})
         print("Web Search Result:\n", web_result)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
