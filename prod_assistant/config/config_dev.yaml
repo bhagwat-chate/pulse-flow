@@ -5,12 +5,20 @@ app:
   env: dev
   port: 8080
 
-llm:
-  provider: openai
-  model: ${OPENAI_API_KEY}
-  embedding_model: ${EMBED_MODEL}
+# -----------------------------------------------------------------
+# Model Secrets Override
+# -----------------------------------------------------------------
+embedding:
+  api_key: ${OPENAI_API_KEY}
 
+llm:
+  api_key: ${OPENAI_API_KEY}
+
+# -----------------------------------------------------------------
+# AstraDB Configuration
+# -----------------------------------------------------------------
 astra:
-  db_id: ${ASTRA_DB_ID}
+  api_endpoint: ${ASTRA_DB_API_ENDPOINT}
   keyspace: ${ASTRA_DB_KEYSPACE}
   token: ${ASTRA_DB_APPLICATION_TOKEN}
+  collection_name: ${ASTRA_DB_COLLECTION}

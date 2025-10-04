@@ -1,149 +1,113 @@
-# prod_assistant/core/secrets.py
+# prod_assistant/utils/model_loader.py
+"""
+Model Loader Module
+===================
 
-import os
+Centralized factory for loading Embedding and LLM clients
+based on unified YAML configuration (config_base.yaml + env overrides).
+
+Supports:
+---------
+- OpenAI  → Embeddings + Chat LLM
+- Groq    → Embeddings + Chat LLM
+- Google  → Embeddings (text-embedding-004) + Chat LLM (Gemini)
+
+Author: Bhagwat Chate
+Project: PulseFlow – E-commerce Product Intelligence
+Version: 1.0.0
+"""
+
 import sys
-import json
-from dotenv import load_dotenv
-from prod_assistant.core.config.config_dev import get_config
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_openai import OpenAIEmbeddings
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
-from prod_assistant.logger import GLOBAL_LOGGER as log
+from prod_assistant.core.globals import get_config, LOGGER
 from prod_assistant.exception.custom_exception import ProductAssistantException
 
-
-class ApiKeyManager:
-    REQUIRED_KEYS = ["GROQ_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"]
-
-    def __init__(self):
-        self.api_keys = {}
-        raw = os.getenv("API_KEYS")
-
-        if raw:
-            try:
-                parsed = json.loads(raw)
-                if not isinstance(parsed, dict):
-                    raise ValueError("API_KEYS is not a valid JSON object")
-                self.api_keys = parsed
-                log.info("Loaded API_KEYS from ECS secret")
-            except Exception as e:
-                log.warning("Failed to parse API_KEYS as JSON", error=str(e))
-
-        # Fallback to individual env vars
-        for key in self.REQUIRED_KEYS:
-            if not self.api_keys.get(key):
-                env_val = os.getenv(key)
-                if env_val:
-                    self.api_keys[key] = env_val
-                    log.info(f"Loaded {key} from individual env var")
-
-        # Final check
-        missing = [k for k in self.REQUIRED_KEYS if not self.api_keys.get(k)]
-        if missing:
-            log.error("Missing required API keys", missing_keys=missing)
-            raise ProductAssistantException("Missing API keys", sys)
-
-        log.info("API keys loaded", keys={k: v[:6] + "..." for k, v in self.api_keys.items()})
-
-    def get(self, key: str) -> str:
-        val = self.api_keys.get(key)
-        if not val:
-            raise KeyError(f"API key for {key} is missing")
-        return val
+# LangChain integrations
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 
 class ModelLoader:
-    """
-    Loads embedding models and LLMs based on config and environment.
-    """
+    """Dynamically creates Embedding and LLM clients from the unified config."""
 
     def __init__(self):
-        if os.getenv("ENV", "local").lower() != "production":
-            load_dotenv()
-            log.info("Running in LOCAL mode: .env loaded")
-        else:
-            log.info("Running in PRODUCTION mode")
-
-        self.api_key_mgr = ApiKeyManager()
         self.config = get_config()
-        log.info("YAML config loaded", config_keys=list(self.config.keys()))
+        LOGGER.info("ModelLoader initialized", app=self.config["app"]["name"], env=self.config["app"].get("env", "base"))
 
+    # ------------------------------------------------------------------
+    # Embedding Loader
+    # ------------------------------------------------------------------
     def load_embeddings(self):
-        """
-        Load and return embedding model from OpenAI.
-        """
+        """Return initialized embedding model client."""
         try:
-            model_name = self.config["embedding_model"]["model_name"]
-            dims = self.config["embedding_model"].get("dimensions")
-            log.info("Loading OpenAI embedding model", model=model_name, dimensions=dims)
+            provider = self.config["embedding"]["provider"]
+            model = self.config["embedding"]["model"]
+            api_key = self.config["embedding"].get("api_key")
 
-            return OpenAIEmbeddings(
-                model=model_name,
-                openai_api_key=self.api_key_mgr.get("OPENAI_API_KEY")  # type: ignore
-            )
+            LOGGER.info("🔹 Loading Embedding Model", provider=provider, model=model)
+
+            if provider == "openai":
+                return OpenAIEmbeddings(model=model, openai_api_key=api_key)
+
+            elif provider == "groq":
+                # Groq currently mirrors OpenAI embedding schema
+                return OpenAIEmbeddings(model=model, openai_api_key=api_key)
+
+            elif provider == "google":
+                return GoogleGenerativeAIEmbeddings(
+                    model=model,
+                    google_api_key=api_key
+                )
+
+            else:
+                LOGGER.error("Unsupported embedding provider", provider=provider)
+                raise ProductAssistantException(f"Unsupported embedding provider: {provider}", sys)
 
         except Exception as e:
-            log.error("Error loading OpenAI embedding model", error=str(e))
-            raise ProductAssistantException("Failed to load embedding model", sys)
+            LOGGER.error("Failed to initialize embedding model", error=str(e))
+            raise ProductAssistantException("Embedding model initialization failed", sys)
 
+    # ------------------------------------------------------------------
+    # LLM Loader
+    # ------------------------------------------------------------------
     def load_llm(self):
-        """
-        Load and return the configured LLM model.
-        """
-        llm_block = self.config["llm"]
-        provider_key = os.getenv("LLM_PROVIDER", "openai")
+        """Return initialized LLM model client."""
+        try:
+            provider = self.config["llm"]["provider"]
+            model = self.config["llm"]["model"]
+            api_key = self.config["llm"].get("api_key")
+            temperature = self.config["llm"].get("temperature", 0.2)
+            max_tokens = self.config["llm"].get("max_output_tokens", 2048)
 
-        if provider_key not in llm_block:
-            log.error("LLM provider not found in config", provider=provider_key)
-            raise ValueError(f"LLM provider '{provider_key}' not found in config")
+            LOGGER.info("Loading LLM", provider=provider, model=model)
 
-        llm_config = llm_block[provider_key]
-        provider = llm_config.get("provider")
-        model_name = llm_config.get("model_name")
-        temperature = llm_config.get("temperature", 0.2)
-        max_tokens = llm_config.get("max_output_tokens", 2048)
+            if provider == "openai":
+                return ChatOpenAI(
+                    model=model,
+                    api_key=api_key,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
 
-        log.info("Loading LLM", provider=provider, model=model_name)
+            elif provider == "groq":
+                return ChatGroq(
+                    model=model,
+                    api_key=api_key,
+                    temperature=temperature,
+                )
 
-        if provider == "google":
-            return ChatGoogleGenerativeAI(
-                model=model_name,
-                google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY"),
-                temperature=temperature,
-                max_output_tokens=max_tokens
-            )
+            elif provider == "google":
+                return ChatGoogleGenerativeAI(
+                    model=model,
+                    google_api_key=api_key,
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                )
 
-        elif provider == "groq":
-            return ChatGroq(
-                model=model_name,
-                api_key=self.api_key_mgr.get("GROQ_API_KEY"), # type: ignore
-                temperature=temperature,
-            )
+            else:
+                LOGGER.error("Unsupported LLM provider", provider=provider)
+                raise ProductAssistantException(f"Unsupported LLM provider: {provider}", sys)
 
-        elif provider == "openai":
-            return ChatOpenAI(
-                model=model_name,
-                api_key=self.api_key_mgr.get("OPENAI_API_KEY"),
-                temperature=temperature
-            )
-
-        else:
-            log.error("Unsupported LLM provider", provider=provider)
-            raise ValueError(f"Unsupported LLM provider: {provider}")
-
-
-if __name__ == "__main__":
-    loader = ModelLoader()
-
-    # Test Embedding
-    embeddings = loader.load_embeddings()
-    print(f"Embedding Model Loaded: {embeddings}")
-    result = embeddings.embed_query("Hello, how are you?")
-    print(f"Embedding Result: {result}")
-
-    # Test LLM
-    llm = loader.load_llm()
-    print(f"LLM Loaded: {llm}")
-    result = llm.invoke("Hello, how are you?")
-    print(f"LLM Result: {result.content}")
+        except Exception as e:
+            LOGGER.error("Failed to initialize LLM", error=str(e))
+            raise ProductAssistantException("LLM initialization failed", sys)

@@ -1,127 +1,158 @@
 # prod_assistant/retriever/retrieval.py
+"""
+Retriever Module
+================
 
-import os
-from langchain_astradb import AstraDBVectorStore
-from prod_assistant.core.config.config_dev import get_config
+Purpose
+--------
+Centralized retrieval layer for PulseFlow — integrates AstraDB vector search
+with LangChain's contextual compression retriever and unified configuration.
+
+Responsibilities
+----------------
+1. Load AstraDB vector store using environment-aware config.
+2. Use embedding + LLM models from ModelLoader.
+3. Apply contextual compression for precise retrieval.
+4. Provide a clean, reusable retriever interface for agents and MCP servers.
+
+Author  : Bhagwat Chate
+Project : PulseFlow – E-commerce Product Intelligence
+Version : 1.0.0
+"""
+
+from prod_assistant.core.bootstrap import bootstrap_app
+from prod_assistant.core.globals import CONFIG, LOGGER, get_config
 from prod_assistant.utils.model_loader import ModelLoader
-from dotenv import load_dotenv
-from langchain.retrievers.document_compressors import LLMChainFilter
+from prod_assistant.exception.custom_exception import ProductAssistantException
+
+from langchain_astradb import AstraDBVectorStore
 from langchain.retrievers import ContextualCompressionRetriever
-from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
+from langchain.retrievers.document_compressors import LLMChainFilter
 
 
-# Add the project root to the Python path for direct script execution
-# project_root = Path(__file__).resolve().parents[2]
-# sys.path.insert(0, str(project_root))
+# ----------------------------------------------------------------------
+# Bootstrap Application Context
+# ----------------------------------------------------------------------
+if CONFIG is None:
+    bootstrap_app()
+
 
 class Retriever:
+    """Loads and manages AstraDB retriever with contextual compression."""
+
     def __init__(self):
-        """_summary_
-        """
-        self.model_loader = ModelLoader()
-        self.config = get_config()
-        self._load_env_variables()
-        self.vstore = None
-        self.retriever_instance = None
+        try:
+            # --- Load configuration ---
+            self.config = get_config()
+            self.model_loader = ModelLoader()
 
-    def _load_env_variables(self):
-        """_summary_
-        """
-        load_dotenv()
+            astra_cfg = self.config.get("astra", {})
+            self.api_endpoint = astra_cfg.get("api_endpoint")
+            self.keyspace = astra_cfg.get("keyspace")
+            self.token = astra_cfg.get("token")
+            self.collection_name = astra_cfg.get("collection_name", "pulseflow_collection")
 
-        required_vars = ["OPENAI_API_KEY", "GOOGLE_API_KEY", "ASTRA_DB_API_ENDPOINT",
-                         "ASTRA_DB_APPLICATION_TOKEN", "ASTRA_DB_KEYSPACE"]
+            retriever_cfg = self.config.get("retriever", {"top_k": 3})
+            self.top_k = retriever_cfg.get("top_k", 3)
 
-        missing_vars = [var for var in required_vars if os.getenv(var) is None]
+            # --- Lazy initialization placeholders ---
+            self.vstore = None
+            self.retriever_instance = None
 
-        if missing_vars:
-            raise EnvironmentError(f"Missing environment variables: {missing_vars}")
+            LOGGER.info(
+                "Retriever initialized",
+                api_endpoint=self.api_endpoint,
+                keyspace=self.keyspace,
+                top_k=self.top_k,
+            )
 
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.db_api_endpoint = os.getenv("ASTRA_DB_API_ENDPOINT")
-        self.db_application_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-        self.db_keyspace = os.getenv("ASTRA_DB_KEYSPACE")
+        except Exception as e:
+            LOGGER.error("Failed to initialize Retriever", error=str(e))
+            raise ProductAssistantException("Retriever initialization failed", e)
 
-    def load_retriever(self):
-        """_summary_
-        """
-        if not self.vstore:
-            collection_name = self.config["astra_db"]["collection_name"]
+    # ------------------------------------------------------------------
+    # Build AstraDB Vector Store
+    # ------------------------------------------------------------------
+    def _load_vector_store(self):
+        """Create AstraDBVectorStore with embeddings."""
+        try:
+            embed_model = self.model_loader.load_embeddings()
 
             self.vstore = AstraDBVectorStore(
-                embedding=self.model_loader.load_embeddings(),
-                collection_name=collection_name,
-                api_endpoint=self.db_api_endpoint,
-                token=self.db_application_token,
-                namespace=self.db_keyspace,
-            )
-        if not self.retriever_instance:
-            top_k = self.config["retriever"]["top_k"] if "retriever" in self.config else 3
-
-            mmr_retriever = self.vstore.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": top_k,
-                               "fetch_k": 20,
-                               "lambda_mult": 0.0,
-                               "score_threshold": 0.0
-                               })
-            print("Retriever loaded successfully.")
-
-            llm = self.model_loader.load_llm()
-
-            compressor = LLMChainFilter.from_llm(llm)
-
-            self.retriever_instance = ContextualCompressionRetriever(
-                base_compressor=compressor,
-                base_retriever=mmr_retriever
+                embedding=embed_model,
+                collection_name=self.collection_name,
+                api_endpoint=self.api_endpoint,
+                token=self.token,
+                namespace=self.keyspace,
             )
 
-        return self.retriever_instance
+            LOGGER.info("AstraDB vector store loaded successfully")
+            return self.vstore
 
-    def call_retriever(self, query):
-        """_summary_
-        """
-        retriever = self.load_retriever()
-        output = retriever.invoke(query)
-        return output
+        except Exception as e:
+            LOGGER.error("Failed to load AstraDB vector store", error=str(e))
+            raise ProductAssistantException("Vector store load failed", e)
+
+    # ------------------------------------------------------------------
+    # Build Contextual Retriever
+    # ------------------------------------------------------------------
+    def load_retriever(self):
+        """Initialize and return a ContextualCompressionRetriever."""
+        try:
+            if not self.vstore:
+                self._load_vector_store()
+
+            if not self.retriever_instance:
+                base_retriever = self.vstore.as_retriever(
+                    search_type="similarity",
+                    search_kwargs={
+                        "k": self.top_k,
+                        "fetch_k": 20,
+                        "lambda_mult": 0.0,
+                        "score_threshold": 0.0,
+                    },
+                )
+
+                llm = self.model_loader.load_llm()
+                compressor = LLMChainFilter.from_llm(llm)
+
+                self.retriever_instance = ContextualCompressionRetriever(
+                    base_compressor=compressor,
+                    base_retriever=base_retriever,
+                )
+
+                LOGGER.info("Contextual retriever created successfully", top_k=self.top_k)
+
+            return self.retriever_instance
+
+        except Exception as e:
+            LOGGER.error("Failed to initialize retriever instance", error=str(e))
+            raise ProductAssistantException("Retriever instance initialization failed", e)
+
+    # ------------------------------------------------------------------
+    # Query Interface
+    # ------------------------------------------------------------------
+    def call_retriever(self, query: str):
+        """Run query against AstraDB retriever and return LangChain Document list."""
+        try:
+            retriever = self.load_retriever()
+            LOGGER.info("Invoking retriever", query=query)
+
+            results = retriever.invoke(query)
+
+            LOGGER.info("Retriever results fetched", count=len(results))
+            return results
+
+        except Exception as e:
+            LOGGER.error("Retriever query failed", query=query, error=str(e))
+            raise ProductAssistantException("Retriever query failed", e)
 
 
-if __name__ == '__main__':
-    user_query = "Can you suggest good budget iPhone under 1,00,00 INR?"
-
-    retriever_obj = Retriever()
-
-    retrieved_docs = retriever_obj.call_retriever(user_query)
-
-
-    def _format_docs(docs) -> str:
-        if not docs:
-            return "No relevant documents found."
-        formatted_chunks = []
-        for d in docs:
-            meta = d.metadata or {}
-            formatted = (
-                f"Title: {meta.get('product_title', 'N/A')}\n"
-                f"Price: {meta.get('price', 'N/A')}\n"
-                f"Rating: {meta.get('rating', 'N/A')}\n"
-                f"Reviews:\n{d.page_content.strip()}"
-            )
-            formatted_chunks.append(formatted)
-        return "\n\n---\n\n".join(formatted_chunks)
-
-
-    retrieved_contexts = [_format_docs(doc) for doc in retrieved_docs]
-
-    # this is not an actual output this have been written to test the pipeline
-    response = "iphone 16 plus, iphone 16, iphone 15 are best phones under 1,00,000 INR."
-
-    context_score = evaluate_context_precision(user_query, response, retrieved_contexts)
-    relevancy_score = evaluate_response_relevancy(user_query, response, retrieved_contexts)
-
-    print("\n--- Evaluation Metrics ---")
-    print("Context Precision Score:", context_score)
-    print("Response Relevancy Score:", relevancy_score)
-
-    # for idx, doc in enumerate(results, 1):
-    #     print(f"Result {idx}: {doc.page_content}\nMetadata: {doc.metadata}\n")
+# ----------------------------------------------------------------------
+# Debug Entry (Standalone Mode)
+# ----------------------------------------------------------------------
+if __name__ == "__main__":
+    retriever = Retriever()
+    query = "What do users say about iPhone 15 Plus battery?"
+    docs = retriever.call_retriever(query)
+    print(f"Retrieved {len(docs)} documents.")

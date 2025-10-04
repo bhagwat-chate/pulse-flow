@@ -1,95 +1,9 @@
 # prod_assistant/mcp_servers/product_search_server.py
-#
-# from mcp.server.fastmcp import FastMCP
-# from prod_assistant.retriever.retrieval import Retriever
-# from langchain_community.tools import DuckDuckGoSearchRun
-#
-# # Initialize MCP server
-# mcp = FastMCP("hybrid_search")
-#
-# # Load retriever once
-# retriever_obj = Retriever()
-# retriever = retriever_obj.load_retriever()
-#
-# # LangChain DuckDuckGo tool
-# duckduckgo = DuckDuckGoSearchRun()
-#
-# # ---------- Helpers ----------
-# def format_docs(docs) -> str:
-#     """Format retriever docs into readable context."""
-#     if not docs:
-#         return ""
-#     formatted_chunks = []
-#     for d in docs:
-#         meta = d.metadata or {}
-#         formatted = (
-#             f"Title: {meta.get('product_title', 'N/A')}\n"
-#             f"Price: {meta.get('price', 'N/A')}\n"
-#             f"Rating: {meta.get('rating', 'N/A')}\n"
-#             f"Reviews:\n{d.page_content.strip()}"
-#         )
-#         formatted_chunks.append(formatted)
-#     return "\n\n---\n\n".join(formatted_chunks)
-#
-#
-# # ---------- MCP Tools ----------
-# # @mcp.tool()
-# # async def get_product_info(query: str) -> str:
-# #     """Retrieve product information for a given query from local retriever."""
-# #     try:
-# #         docs = retriever.invoke(query)
-# #         context = format_docs(docs)
-# #         if not context.strip():
-# #             return "No local results found."
-# #         return context
-# #     except Exception as e:
-# #         return f"Error retrieving product info: {str(e)}"
-#
-#
-# @mcp.tool()
-# async def get_product_info(query: str) -> list[dict]:
-#     """
-#     Retrieve product information for a given query from local retriever.
-#     Returns raw documents as dicts, not just a string.
-#     """
-#     try:
-#         docs = retriever.invoke(query)
-#         if not docs:
-#             return []
-#         # Return JSON-safe list of dicts
-#         return [
-#             {
-#                 "page_content": d.page_content,
-#                 "metadata": d.metadata
-#             }
-#             for d in docs
-#         ]
-#     except Exception as e:
-#         return [{"page_content": f"Error: {str(e)}", "metadata": {}}]
-#
-#
-#
-# @mcp.tool()
-# async def web_search(query: str) -> str:
-#     """
-#     Perform a web search for the given query using DuckDuckGo.
-#     Args:
-#         query (str): The user query string.
-#     Returns:
-#         str: Search results in plain text format, or an error message.
-#     """
-#
-#     try:
-#         return duckduckgo.run(query)
-#     except Exception as e:
-#         return f"Error during web search: {str(e)}"
-#
-# # ---------- Run Server ----------
-# if __name__ == "__main__":
-#     mcp.run(transport="stdio")
 
+# --- Bootstrap first ---
+from prod_assistant.core.bootstrap import bootstrap_app
+bootstrap_app()  # ensures LOGGER and CONFIG initialized
 
-# prod_assistant/mcp_servers/product_search_server.py
 import sys
 import json
 from mcp.server.fastmcp import FastMCP

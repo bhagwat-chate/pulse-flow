@@ -1,33 +1,86 @@
-# prod_assistant/config/config_base.yaml
+# =====================================================================
+# PulseFlow - Base Configuration
+# =====================================================================
+# Environment-agnostic base configuration.
+# Contains provider-wise model definitions and defaults.
+# Environment-specific overrides (dev/prod) only replace secrets or keys.
+# =====================================================================
 
-astra_db:
-  collection_name: "ecommercedata"
+app:
+  name: pulseflow
+  env: base
+  port: 8080
 
-#embedding_model:
-#  provider: "google"
-#  model_name: "models/text-embedding-004"
-embedding_model:
-  provider: "openai"
+# ---------------------------------------------------------------------
+# Embedding Model Configuration (active selection)
+# ---------------------------------------------------------------------
+embedding:
+  provider: openai                # openai | groq | google
+  model: text-embedding-3-large
+  api_key: ${OPENAI_API_KEY}
   dimensions: 3072
-  model_name: "text-embedding-3-large"
 
-retriever:
-  top_k: 10
-
+# ---------------------------------------------------------------------
+# LLM Model Configuration (active selection)
+# ---------------------------------------------------------------------
 llm:
-  groq:
-    provider: "groq"
-    model_name: "deepseek-r1-distill-llama-70b"
-    temperature: 0
-    max_output_tokens: 2048
+  provider: openai                # openai | groq | google
+  model: gpt-4o
+  api_key: ${OPENAI_API_KEY}
+  temperature: 0.2
+  max_output_tokens: 2048
 
-  google:
-    provider: "google"
-    model_name: "gemini-2.0-flash"
-    temperature: 0
-    max_output_tokens: 2048
+# ---------------------------------------------------------------------
+# Provider Registry
+# ---------------------------------------------------------------------
+# Each provider block defines both embedding and LLM defaults.
+# Used internally by ModelLoader to instantiate appropriate clients.
+# ---------------------------------------------------------------------
+providers:
 
   openai:
-     provider: "openai"
-     model_name: "gpt-4o"
-     temperature: 0
+    embedding:
+      class: OpenAIEmbeddings
+      model: text-embedding-3-large
+      api_key_env: OPENAI_API_KEY
+      dimensions: 3072
+
+    llm:
+      class: ChatOpenAI
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+      temperature: 0.2
+      max_output_tokens: 2048
+
+  groq:
+    embedding:
+      # (LangChain doesn’t yet have GroqEmbeddings → mirrors OpenAI schema)
+      class: OpenAIEmbeddings
+      model: text-embedding-3-large
+      api_key_env: GROQ_API_KEY
+      dimensions: 3072
+
+    llm:
+      class: ChatGroq
+      model: llama3-70b-8192
+      api_key_env: GROQ_API_KEY
+      temperature: 0.1
+      max_output_tokens: 2048
+
+  google:
+    embedding:
+      class: GoogleGenerativeAIEmbeddings
+      model: models/text-embedding-004
+      api_key_env: GOOGLE_API_KEY
+      dimensions: 3072
+
+    llm:
+      class: ChatGoogleGenerativeAI
+      model: gemini-2.0-flash
+      api_key_env: GOOGLE_API_KEY
+      temperature: 0.2
+      max_output_tokens: 2048
+
+# =====================================================================
+# End of Base Configuration
+# =====================================================================
