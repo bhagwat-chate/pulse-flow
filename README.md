@@ -116,8 +116,8 @@ pulse-flow/
 ├── scrapper_ui.py
 ├── static
 │   └── online_shopping.png
-├── templetes
-│   └── index.html
+├── templates
+│   └── chat.html
 └── versions.py
 
 ```

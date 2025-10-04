@@ -10,6 +10,10 @@ from langchain.retrievers import ContextualCompressionRetriever
 from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
 
 
+# Add the project root to the Python path for direct script execution
+# project_root = Path(__file__).resolve().parents[2]
+# sys.path.insert(0, str(project_root))
+
 class Retriever:
     def __init__(self):
         """_summary_
@@ -25,7 +29,8 @@ class Retriever:
         """
         load_dotenv()
 
-        required_vars = ["GOOGLE_API_KEY", "ASTRA_DB_API_ENDPOINT", "ASTRA_DB_APPLICATION_TOKEN", "ASTRA_DB_KEYSPACE"]
+        required_vars = ["OPENAI_API_KEY", "GOOGLE_API_KEY", "ASTRA_DB_API_ENDPOINT",
+                         "ASTRA_DB_APPLICATION_TOKEN", "ASTRA_DB_KEYSPACE"]
 
         missing_vars = [var for var in required_vars if os.getenv(var) is None]
 
@@ -33,6 +38,7 @@ class Retriever:
             raise EnvironmentError(f"Missing environment variables: {missing_vars}")
 
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.db_api_endpoint = os.getenv("ASTRA_DB_API_ENDPOINT")
         self.db_application_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
         self.db_keyspace = os.getenv("ASTRA_DB_KEYSPACE")
@@ -54,13 +60,13 @@ class Retriever:
             top_k = self.config["retriever"]["top_k"] if "retriever" in self.config else 3
 
             mmr_retriever = self.vstore.as_retriever(
-                search_type="mmr",
+                search_type="similarity",
                 search_kwargs={"k": top_k,
                                "fetch_k": 20,
-                               "lambda_mult": 0.7,
-                               "score_threshold": 0.6
+                               "lambda_mult": 0.0,
+                               "score_threshold": 0.0
                                })
-            # print("Retriever loaded successfully.")
+            print("Retriever loaded successfully.")
 
             llm = self.model_loader.load_llm()
 

@@ -1,21 +1,23 @@
 # prod_assistant/utils/config_loader.py
 
+from pathlib import Path
 import os
 import yaml
-from pathlib import Path
-from typing import Optional
 
 
-def load_config(config_path: Optional[str] = None) -> dict:
+def _project_root() -> Path:
+    # .../utils/config_loader.py -> parents[1] == project root
+    return Path(__file__).resolve().parents[1]
+
+
+def load_config(config_path: str | None = None) -> dict:
     """
-    Load YAML configuration file with robust path resolution.
-    Priority:
-      1. CONFIG_PATH environment variable
-      2. Explicit function argument
-      3. Default: <project_root>/config/config.yaml
+    Resolve config path reliably irrespective of CWD.
+    Priority: explicit arg > CONFIG_PATH env > <project_root>/config/config.yaml
     """
-    # resolve config path priority
-    config_path = os.getenv("CONFIG_PATH") or config_path or str(_project_root() / "config" / "config.yaml")
+    env_path = os.getenv("CONFIG_PATH")
+    if config_path is None:
+        config_path = env_path or str(_project_root() / "config" / "config.yaml")
 
     path = Path(config_path)
     if not path.is_absolute():
@@ -24,9 +26,5 @@ def load_config(config_path: Optional[str] = None) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    with open(path, "r", encoding="utf-8") as file:
-        return yaml.safe_load(file) or {}
-
-
-def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
