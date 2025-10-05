@@ -1,5 +1,47 @@
 # prod_assistant/router/main.py
 
+"""
+==========================================================
+ PulseFlow Router Module
+ ----------------------------------------------------------
+ File: prod_assistant/router/main.py
+
+ Description:
+     Core FastAPI entrypoint for the PulseFlow backend service.
+     This module defines:
+         • HTTP routing for the chat and observability endpoints
+         • Request → Agentic RAG workflow orchestration
+         • Global exception handling and trace correlation
+         • LangSmith-integrated tracing wrapper for full observability
+
+ Architecture Context:
+     ├── Layer:  User / API Gateway
+     ├── Upstream: Chat UI (HTML Form, /get route)
+     ├── Downstream: AgenticRAG workflow → LangSmith → CloudWatch
+     ├── Observability: Trace IDs via LangSmith + Structured JSON logs
+     └── Deployment: AWS ECS / EKS (FastAPI container service)
+
+ Key Features:
+     ✅ Structured JSON logging with per-request trace_id
+     ✅ Unified observability endpoints (/info, /health, /metrics)
+     ✅ LangSmith trace wrapper (compatible ≤ v0.4.32)
+     ✅ Graceful exception management using ProductAssistantException
+     ✅ Cloud-native readiness for S3 log archival and monitoring
+
+ Version:     v1.1.0 – Observability Milestone
+ Author:      Bhagwat Chate
+ Organization: iDataflow.ai
+ Date:        2025-10-05
+ ----------------------------------------------------------
+ Engineering Standards Followed:
+     • FAANGM-grade structure and docstrings
+     • Modular exception safety with explicit error boundaries
+     • Semantic logging (event, message, trace_id)
+     • Compatibility with LangSmith SDK ≤ 0.4.32
+     • Production-ready FastAPI lifecycle hooks and middleware
+==========================================================
+"""
+
 import os
 import platform
 import warnings
