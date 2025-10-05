@@ -1,6 +1,8 @@
 # prod_assistant/workflow/agentic_workflow_with_mcp_websearch.py
 
 import json
+from prod_assistant.core.trace import get_trace_id
+from prod_assistant.core.globals import LOGGER
 from typing import Annotated, Sequence, TypedDict, Literal
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
@@ -13,7 +15,7 @@ from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
 from langgraph.checkpoint.memory import MemorySaver
 import asyncio
-from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
+# from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
@@ -40,6 +42,7 @@ class AgenticRAG:
         # Load MCP tools
         # self.mcp_tools = asyncio.run(self.mcp_client.get_tools())
         try:
+
             self.mcp_tools = asyncio.run(self.mcp_client.get_tools())
             print(f"[MCP] Loaded tools: {[t.name for t in self.mcp_tools]}")
 
@@ -95,7 +98,13 @@ class AgenticRAG:
         if not tool:
             return {"messages": [HumanMessage(content="[MCP ERROR] get_product_info tool not available")]}
 
-        result = asyncio.run(tool.ainvoke({"query": query}))
+        trace_id = get_trace_id()
+        payload = {"query": query, "trace_id": trace_id}
+        LOGGER.info("Sending MCP request", tool=tool.name, trace_id=trace_id)
+
+        # result = asyncio.run(tool.ainvoke({"query": query}))
+        result = asyncio.run(tool.ainvoke(payload))
+
         print(f"[DEBUG] Raw result from MCP: {result} (type: {type(result)})")
 
         # Always try JSON parse if string
@@ -135,7 +144,13 @@ class AgenticRAG:
         if not tool:
             return {"messages": [HumanMessage(content="[MCP ERROR] web_search tool not available")]}
 
-        result = asyncio.run(tool.ainvoke({"query": query}))
+        trace_id = get_trace_id()
+        payload = {"query": query, "trace_id": trace_id}
+        LOGGER.info("Sending MCP request", tool=tool.name, trace_id=trace_id)
+
+        # result = asyncio.run(tool.ainvoke({"query": query}))
+        result = asyncio.run(tool.ainvoke(payload))
+
         context = result if result else "No data from web"
         return {"messages": [HumanMessage(content=context)]}
 

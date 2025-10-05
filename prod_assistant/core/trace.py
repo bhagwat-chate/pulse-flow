@@ -1,18 +1,22 @@
+"""
+Trace Context Management
+========================
+
+Provides utilities to create, fetch, and manage per-request trace IDs.
+These IDs propagate across both FastAPI and MCP layers.
+"""
+
 import uuid
-import contextvars
-
-
-# Context variable to hold trace_id per request
-_trace_id_ctx = contextvars.ContextVar("trace_id", default=None)
+from prod_assistant.core.globals import TRACE_ID
 
 
 def new_trace_id() -> str:
-    """Generate a new unique trace_id and set it in context."""
+    """Generate and set a new unique trace_id in the context."""
     trace_id = str(uuid.uuid4())
-    _trace_id_ctx.set(trace_id)
+    TRACE_ID.set(trace_id)
     return trace_id
 
 
 def get_trace_id() -> str:
-    """Return the current trace_id from context, if any."""
-    return _trace_id_ctx.get() or "no-trace-id"
+    """Retrieve the active trace_id, or 'no-trace-id' if none is set."""
+    return TRACE_ID.get() or "no-trace-id"

@@ -45,6 +45,7 @@ async def chat(msg: str = Form(...)):
 
     rag_agent = AgenticRAG()
     answer = rag_agent.run(msg)   # run() already returns final answer string
+
     LOGGER.info("Agentic RAG response generated", response=answer[:200])
 
     return answer
@@ -54,7 +55,7 @@ async def chat(msg: str = Form(...)):
 async def add_trace_id(request: Request, call_next):
     """Middleware to attach a new trace_id to each incoming request."""
     trace_id = new_trace_id()
-    LOGGER.info("🪪 New request trace initialized", trace_id=trace_id, path=request.url.path)
+    LOGGER.info("new request trace initialized", trace_id=trace_id, path=request.url.path)
 
     # Attach trace_id to response headers as well (optional, for debugging)
     response = await call_next(request)

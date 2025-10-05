@@ -151,8 +151,8 @@ class Retriever:
 # ----------------------------------------------------------------------
 # Debug Entry (Standalone Mode)
 # ----------------------------------------------------------------------
-if __name__ == "__main__":
-    retriever = Retriever()
-    query = "What do users say about iPhone 15 Plus battery?"
-    docs = retriever.call_retriever(query)
-    print(f"Retrieved {len(docs)} documents.")
+# if __name__ == "__main__":
+#     retriever = Retriever()
+#     query = "What do users say about iPhone 15 Plus battery?"
+#     docs = retriever.call_retriever(query)
+#     print(f"Retrieved {len(docs)} documents.")
