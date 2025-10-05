@@ -1,3 +1,5 @@
+# prod_assistant/core/trace.py
+
 """
 Trace Context Management
 ========================

@@ -1,21 +1,5 @@
-# # main.py
-#
-# import sys
-# from prod_assistant.core.bootstrap import bootstrap_app
-# from prod_assistant.router.main import
-#
-# def main():
-#     """Entry point for the pulse-flow CLI."""
-#     print("🚀 Pulse-Flow is running!")
-#
-#     bootstrap_app()
-#
-#
-# if __name__ == "__main__":
-#     main()
-
-
 # main.py
+
 """
 Main Entrypoint for PulseFlow
 =============================

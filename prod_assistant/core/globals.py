@@ -1,3 +1,5 @@
+# prod_assistant/core/globals.py
+
 """
 Central registry for app-wide singletons like config, logger, and cache.
 Ensures they are initialized once and reused everywhere.
