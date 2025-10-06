@@ -19,15 +19,15 @@ Enhancements:
 # --- Bootstrap first ---
 from prod_assistant.core.bootstrap import bootstrap_app
 bootstrap_app()  # ensures LOGGER + CONFIG are initialized
-
-import sys
+import platform
+import os
 import json
 from typing import Optional, Dict, Any
 from mcp.server.fastmcp import FastMCP
 from prod_assistant.retriever.retrieval import Retriever
 from langchain_community.tools import DuckDuckGoSearchRun
 from prod_assistant.core.globals import TRACE_ID, LOGGER
-from prod_assistant.core.server_logger import get_mcp_logger
+from prod_assistant.core.server_logger import get_mcp_logger, log_stage
 
 # ----------------------------------------------------------------------
 # Initialize MCP Server + Core Components
@@ -110,5 +110,50 @@ async def web_search(payload: Dict[str, Any]) -> str:
 # Run MCP Server
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
-    LOGGER.info("🚀 Starting MCP hybrid_search server (Product + Web Search)")
-    mcp.run(transport="stdio")
+    try:
+        # --- Structured startup logging ---
+        env = os.getenv("PULSEFLOW_APP_ENV", "dev")
+        log_stage(
+            stage="startup",
+            event="Starting MCP hybrid_search server",
+            mode="Product + Web Search",
+            env=env,
+        )
+        log_stage(
+            stage="retriever_init",
+            event="Initializing Retriever",
+            source="AstraDB + OpenAI Embeddings",
+            env=env,
+        )
+        log_stage(
+            stage="db_connect",
+            event="Connecting AstraDB",
+            keyspace="pulseflow_keyspace",
+            collection="pulseflow_collection",
+            env=env,
+        )
+        log_stage(
+            stage="web_search_tool",
+            event="DuckDuckGo tool initialized",
+            env=env,
+        )
+
+        # --- Run the MCP Server ---
+        mcp.run(transport="stdio")
+
+        # --- Final confirmation log ---
+        log_stage(
+            stage="server_ready",
+            event="✅ MCP hybrid_search server started and ready to serve requests",
+            transport="stdio",
+            env=env,
+        )
+
+    except Exception as e:
+        log_stage(
+            stage="fatal_error",
+            event="MCP server startup failed",
+            error=str(e),
+            env=os.getenv("PULSEFLOW_APP_ENV", "dev"),
+        )
+        raise

@@ -2,6 +2,7 @@
 
 import json
 from prod_assistant.core.trace import get_trace_id
+from langsmith import run_helpers
 from prod_assistant.core.globals import LOGGER
 from typing import Annotated, Sequence, TypedDict, Literal
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -15,8 +16,19 @@ from prod_assistant.retriever.retrieval import Retriever
 from prod_assistant.utils.model_loader import ModelLoader
 from langgraph.checkpoint.memory import MemorySaver
 import asyncio
-# from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
+from prod_assistant.evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
 from langchain_mcp_adapters.client import MultiServerMCPClient
+
+
+def log_ragas_to_langsmith(ctx_precision, resp_relevancy, trace_id):
+    try:
+        run_helpers.set_global_extra({
+            "ragas_context_precision": ctx_precision,
+            "ragas_response_relevancy": resp_relevancy,
+            "trace_id": trace_id
+        })
+    except Exception as e:
+        LOGGER.warning("Failed to attach RAGAs metrics to LangSmith", trace_id=trace_id, error=str(e))
 
 
 class AgenticRAG:
@@ -33,25 +45,38 @@ class AgenticRAG:
 
         # MCP Client Init
         self.mcp_client = MultiServerMCPClient({
-                    "hybrid_search": {
-                        "command": "python",
-                        "args": ["-m", "prod_assistant.mcp_servers.product_search_server"],
-                        "transport": "stdio"
-                    }
-                })
-        # Load MCP tools
-        # self.mcp_tools = asyncio.run(self.mcp_client.get_tools())
+            "hybrid_search": {
+                "command": "python",
+                "args": ["-m", "prod_assistant.mcp_servers.product_search_server"],
+                "transport": "stdio"
+            }
+        })
+
+        # --- Load MCP tools safely (handles both FastAPI + CLI runs) ---
+        self.mcp_tools = []
         try:
-
-            self.mcp_tools = asyncio.run(self.mcp_client.get_tools())
-            print(f"[MCP] Loaded tools: {[t.name for t in self.mcp_tools]}")
-
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # ✅ Properly schedule async coroutine on existing loop
+                loop.create_task(self._load_mcp_tools())
+            else:
+                loop.run_until_complete(self._load_mcp_tools())
         except Exception as e:
-            print(f"[MCP] Failed to load tools: {e}")
+            print(f"[MCP] Failed to start MCP tool loader: {e}")
             self.mcp_tools = []
 
+        # --- Compile the workflow ---
         self.workflow = self._build_workflow()
         self.app = self.workflow.compile(checkpointer=self.checkpointer)
+
+    # Add this async method in the same class:
+    async def _load_mcp_tools(self):
+        try:
+            self.mcp_tools = await self.mcp_client.get_tools()
+            print(f"[MCP] Loaded tools: {[t.name for t in self.mcp_tools]}")
+        except Exception as e:
+            print(f"[MCP] Failed to load tools asynchronously: {e}")
+            self.mcp_tools = []
 
     def _ai_assistant(self, state: AgentState):
         print("--- CALL ASSISTANT ---")
@@ -172,11 +197,54 @@ class AgenticRAG:
         print("--- GENERATE ---")
         question = state["messages"][0].content
         docs = state["messages"][-1].content
+
         prompt = ChatPromptTemplate.from_template(
             PROMPT_REGISTRY[PromptType.PRODUCT_BOT].template
         )
         chain = prompt | self.llm | StrOutputParser()
         response = chain.invoke({"context": docs, "question": question})
+
+        # async RAGAs evaluation safely
+        try:
+            import asyncio
+            from prod_assistant.evaluation.ragas_eval import (
+                evaluate_context_precision,
+                evaluate_response_relevancy,
+            )
+            from langsmith import run_helpers
+
+            async def _run_ragas():
+                try:
+                    retrieved_contexts = [docs] if isinstance(docs, str) else docs
+
+                    ctx_precision = await evaluate_context_precision(question, response, retrieved_contexts)
+                    resp_relevancy = await evaluate_response_relevancy(question, response, retrieved_contexts)
+
+                    LOGGER.info("RAGAs evaluation complete", trace_id=get_trace_id(), context_precision=ctx_precision, response_relevancy=resp_relevancy)
+
+                    # Safe LangSmith integration
+                    if hasattr(run_helpers, "add_extra"):
+                        run_helpers.add_extra({"ragas_context_precision": ctx_precision, "ragas_response_relevancy": resp_relevancy})
+                    else:
+                        LOGGER.warning("Failed to attach RAGAs metrics to LangSmith", trace_id=get_trace_id(), error="Unsupported version (no add_extra)")
+
+                except Exception as e:
+                    LOGGER.warning("RAGAs evaluation skipped or failed", trace_id=get_trace_id(), error=str(e),)
+
+            # Works both inside and outside event loops
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_run_ragas())
+            except RuntimeError:
+                asyncio.run(_run_ragas())
+
+        except Exception as e:
+            LOGGER.warning(
+                "RAGAs evaluation block failed to start",
+                trace_id=get_trace_id(),
+                error=str(e),
+            )
+
         return {"messages": [HumanMessage(content=response)]}
 
     def _rewrite(self, state: AgentState):
@@ -237,34 +305,11 @@ class AgenticRAG:
 
 
 if __name__ == "__main__":
-    # query = "What do customers say about the battery life of the iPhone 15 Plus?"
-    # query = "List two negative reviews regarding the iPhone 15 Plus performance."
-    # query = "What is the price of iPhone 15 Plus in India?"
-    # query = "Summarize top customer opinions about the Samsung S24’s battery life."
-    # query = "List three negative reviews for iPhone 15 Plus."
-    # print(f"[query] query: {query}")
-    # rag_agent = AgenticRAG()
-    # print(f"[query] {query}")
-    # answer = rag_agent.run(query)
-    # print("\nFinal Answer:\n", answer)
-
-
-    # test_queries = [
-    #     "What do customers say about the battery life of the iPhone 15 Plus?",
-    #     "Summarize three positive opinions about the iPhone 15 camera quality.",
-    #     "How do buyers describe the display brightness and clarity of the iPhone 15?",
-    #     "Do users feel that the iPhone 15 is worth the price they paid?",
-    #     "Summarize customer feedback about the design and build quality of the iPhone 15 Plus.",
-    #     "What are the most common complaints about the iPhone 15 heating issues?",
-    #     "What positive experiences do customers report about the iPhone 15 Plus battery charging speed?",
-    #     "Summarize how customers reviewed the speaker and sound quality of the iPhone 15.",
-    #     "Compare customer opinions on durability between iPhone 15 and iPhone 15 Plus."
-    # ]
     test_queries = [
         "What do users say about iPhone 15 Plus?",
-        # "Any complaints about heating issues in iPhone 15?",
-        # "How is the display quality of iPhone 15?",
-        # "Is iPhone 15 considered value for money?"
+        "Any complaints about heating issues in iPhone 15?",
+        "How is the display quality of iPhone 15?",
+        "Is iPhone 15 considered value for money?"
     ]
     rag_agent = AgenticRAG()
 
