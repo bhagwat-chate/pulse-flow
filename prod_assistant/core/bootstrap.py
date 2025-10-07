@@ -1,48 +1,61 @@
 # prod_assistant/core/bootstrap.py
 
 """
-Application Bootstrap Module
-=============================
+================================================================================
+ PulseFlow Application Bootstrap Module
+================================================================================
+- Author      : Bhagwat Chate
+- Project     : PulseFlow – Multi-Agent Product Intelligence System
+- Module      : core.bootstrap
+- Version     : 1.0.0
+- Created on  : 2025-10-07
+- Last Updated: 2025-10-07
+- Environment : Python 3.11.13 | FastAPI | LangGraph | AWS Secrets Manager | StructLog
+================================================================================
 
-This module is responsible for initializing the entire PulseFlow runtime
-environment before any other component executes.
+This module bootstraps the entire **PulseFlow** runtime environment by loading
+configuration files, resolving environment variables, managing secrets, and
+initializing global components such as structured logging and configuration
+registries. It is the first entrypoint executed before any workflow, agent, or
+server component runs.
 
-It performs the following critical tasks:
-------------------------------------------------
-1. **Configuration Loading**
-   - Reads the base YAML configuration (`config_base.yaml`) shared across all environments.
-   - Merges it with environment-specific overrides (`config_dev.yaml`, `config_prod.yaml`).
-   - Dynamically replaces placeholders (e.g., `${OPENAI_API_KEY}`) with actual environment values.
+Core Responsibilities
+---------------------
+- Load base and environment-specific YAML configurations.
+- Replace `${VAR}` placeholders with values from `.env` (DEV) or AWS Secrets Manager (PROD).
+- Merge configurations into a single global object stored in `core.globals`.
+- Initialize a structured `CustomLogger` instance and register it globally.
+- Provide environment, version, and configuration traceability for observability.
 
-2. **Secret Management**
-   - In **DEV/LOCAL**, loads secrets from the `.env` file.
-   - In **PROD**, securely fetches secrets from **AWS Secrets Manager** using the provided
-     `AWS_REGION` and `AWS_SECRET_NAME`.
+Workflow Topology
+-----------------
+    main.py / FastAPI → bootstrap_app()
+        → load .env or AWS Secrets
+        → merge base + env YAML
+        → set globals.CONFIG and globals.LOGGER
+        → application ready
 
-3. **Logger Initialization**
-   - Creates a structured JSON logger (via `structlog`), configured for both
-     console and file output.
-   - Registers the logger globally so it can be reused by all modules.
+External Integrations
+---------------------
+- **dotenv** — Loads local environment variables in development mode.
+- **AWS Secrets Manager** — Securely retrieves production secrets.
+- **StructLog** — Provides structured, JSON-based logging for all modules.
+- **Globals Registry** — Stores unified configuration and logger instances.
 
-4. **Global Registry Setup**
-   - Stores the merged configuration and initialized logger into
-     `prod_assistant.core.globals` to ensure single-instance access across the app.
+Changelog
+---------
+v1.0.0  (2025-10-07)
+    • Initial stable bootstrap implementation for environment-aware configuration.
+    • Added YAML placeholder substitution and recursive merge strategy.
+    • Integrated AWS Secrets Manager for secure production deployments.
+    • Registered structured JSON logger globally via `CustomLogger`.
 
-5. **Version Traceability**
-   - Logs the active environment and application version (`__version__`) for
-     audit and observability purposes.
-
-This module is invoked once during application startup, typically from
-`main.py` or the FastAPI entrypoint, using:
-
-    from prod_assistant.core.bootstrap import bootstrap_app
-    bootstrap_app()
-
-Author: Bhagwat Chate
-Project: PulseFlow (E-Commerce Product Intelligence)
-Version: 1.0.0
+License
+-------
+Copyright © 2025 Bhagwat Chate.
+This code is part of the **PulseFlow** system under the personal projects umbrella.
+All rights reserved.
 """
-
 
 import os
 import re

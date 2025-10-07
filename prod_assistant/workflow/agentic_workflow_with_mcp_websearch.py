@@ -63,6 +63,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.checkpoint.postgres import PostgresSaver
 
 from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
 from prod_assistant.retriever.retrieval import Retriever
@@ -71,7 +73,7 @@ from prod_assistant.utils.mcp_tool_loader import schedule_mcp_tool_loading
 from prod_assistant.utils.ragas_helper import launch_ragas_evaluation
 from prod_assistant.core.trace import get_trace_id
 from prod_assistant.core.globals import LOGGER
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from prod_assistant.core.globals import get_config
 
 
 class AgenticRAG:
@@ -118,7 +120,12 @@ class AgenticRAG:
         self.retriever_obj = Retriever()
         self.model_loader = ModelLoader()
         self.llm = self.model_loader.load_llm()
-        self.checkpointer = MemorySaver()
+
+        # self.checkpointer = MemorySaver()
+        config = get_config()
+        db_uri = config['database']['uri']
+        self.checkpointer = PostgresSaver.from_conn_string(db_uri)
+        self.checkpointer.setup()  # <-- important: creates tables if missing
 
         self.mcp_client = MultiServerMCPClient({
             "hybrid_search": {
@@ -385,7 +392,7 @@ class AgenticRAG:
     # ------------------------------------------------------
     # Public Entry
     # ------------------------------------------------------
-    def run(self, query: str, thread_id: str = "default_thread") -> str:
+    def run(self, query: str, thread_id: str = "default_thread", namespace: str = "agenticrag") -> str:
         """
         Execute the entire AgenticRAG workflow for a given user query.
 
@@ -396,12 +403,17 @@ class AgenticRAG:
         Returns:
             str: Final generated response text.
         """
+
         trace_id = get_trace_id()
-        LOGGER.info("Workflow invoked", trace_id=trace_id, query=query)
+
+        LOGGER.info("Workflow invoked", trace_id=trace_id, query=query, namespace=namespace)
+
         result = self.app.invoke(
             {"messages": [HumanMessage(content=query)]},
-            config={"configurable": {"thread_id": thread_id}},
+            config={"configurable": {"thread_id": thread_id, "checkpoint_ns": namespace}},
         )
+
         final_response = result["messages"][-1].content
         LOGGER.info("Workflow completed", trace_id=trace_id)
+
         return final_response
