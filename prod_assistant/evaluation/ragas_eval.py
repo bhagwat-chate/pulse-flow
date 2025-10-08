@@ -9,10 +9,11 @@ from ragas.metrics import LLMContextPrecisionWithoutReference, ResponseRelevancy
 import grpc.experimental.aio as grpc_aio
 
 grpc_aio.init_grpc_aio()
-model_loader = ModelLoader()
+# model_loader = ModelLoader()
 
 
 async def _evaluate_context_precision_async(query, response, retrieved_context):
+    model_loader = ModelLoader()  # Lazy instantiation
     llm = model_loader.load_llm()
     evaluator_llm = LangchainLLMWrapper(llm)
     metric = LLMContextPrecisionWithoutReference(llm=evaluator_llm)
@@ -26,6 +27,7 @@ async def _evaluate_context_precision_async(query, response, retrieved_context):
 
 
 async def _evaluate_response_relevancy_async(query, response, retrieved_context):
+    model_loader = ModelLoader()  # Lazy instantiation
     llm = model_loader.load_llm()
     evaluator_llm = LangchainLLMWrapper(llm)
     embedding_model = model_loader.load_embeddings()

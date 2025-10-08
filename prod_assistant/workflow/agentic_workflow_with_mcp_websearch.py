@@ -1,3 +1,5 @@
+# prod_assistant/workflow/agentic_workflow_with_mcp_websearch.py
+
 """
 ================================================================================
  AgenticRAG Workflow (MCP + RAGAs)
@@ -53,7 +55,12 @@ This code is part of the **PulseFlow** system under the personal projects umbrel
 All rights reserved.
 """
 
+from prod_assistant.core.bootstrap import bootstrap_app
+bootstrap_app()
+import logging
+logging.getLogger("langgraph.checkpoint").setLevel(logging.DEBUG)
 
+import psycopg
 import json
 import asyncio
 from typing import Annotated, Sequence, TypedDict, Literal
@@ -121,11 +128,16 @@ class AgenticRAG:
         self.model_loader = ModelLoader()
         self.llm = self.model_loader.load_llm()
 
-        # self.checkpointer = MemorySaver()
         config = get_config()
         db_uri = config['database']['uri']
-        self.checkpointer = PostgresSaver.from_conn_string(db_uri)
-        self.checkpointer.setup()  # <-- important: creates tables if missing
+        LOGGER.info(f"✅ Checkpointer initialized with DB: {db_uri}")
+
+        conn = psycopg.connect(db_uri)
+        LOGGER.info(f"✅ conn: {conn}")
+
+        self.checkpointer = PostgresSaver(conn)
+        self.checkpointer.setup()
+        LOGGER.info(f"✅ self.checkpointer: {self.checkpointer}")
 
         self.mcp_client = MultiServerMCPClient({
             "hybrid_search": {
@@ -392,28 +404,63 @@ class AgenticRAG:
     # ------------------------------------------------------
     # Public Entry
     # ------------------------------------------------------
-    def run(self, query: str, thread_id: str = "default_thread", namespace: str = "agenticrag") -> str:
-        """
-        Execute the entire AgenticRAG workflow for a given user query.
+    # def run(self, query: str, thread_id: str = "default_thread", namespace: str = "agenticrag") -> str:
+    #     """
+    #     Execute the entire AgenticRAG workflow for a given user query.
+    #
+    #     Args:
+    #         query (str): Natural language user query or product-related question.
+    #         thread_id (str, optional): Thread/session identifier for checkpointing.
+    #
+    #     Returns:
+    #         str: Final generated response text.
+    #     """
+    #
+    #     trace_id = get_trace_id()
+    #
+    #     LOGGER.info("Workflow invoked", trace_id=trace_id, query=query, namespace=namespace)
+    #
+    #     result = self.app.invoke(
+    #         {"messages": [HumanMessage(content=query)]},
+    #         config={"configurable": {"thread_id": thread_id, "checkpoint_ns": namespace}},
+    #     )
+    #
+    #     final_response = result["messages"][-1].content
+    #     LOGGER.info("Workflow completed", trace_id=trace_id)
+    #
+    #     return final_response
 
-        Args:
-            query (str): Natural language user query or product-related question.
-            thread_id (str, optional): Thread/session identifier for checkpointing.
-
-        Returns:
-            str: Final generated response text.
-        """
-
+    def run(self, query: str, thread_id: str = "debug_thread", namespace: str = "agenticrag") -> str:
         trace_id = get_trace_id()
-
         LOGGER.info("Workflow invoked", trace_id=trace_id, query=query, namespace=namespace)
 
-        result = self.app.invoke(
-            {"messages": [HumanMessage(content=query)]},
-            config={"configurable": {"thread_id": thread_id, "checkpoint_ns": namespace}},
+        # Explicit persistence checkpoints
+        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": namespace}}
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]}, config=config)
+
+        # Force a save explicitly
+        self.checkpointer.put_checkpoint(
+            {"thread_id": thread_id, "checkpoint_ns": namespace, "data": {"messages": result["messages"]}}
         )
+        LOGGER.info("Checkpoint manually written to Postgres", trace_id=trace_id)
 
         final_response = result["messages"][-1].content
         LOGGER.info("Workflow completed", trace_id=trace_id)
-
         return final_response
+
+
+if __name__ == '__main__':
+    # query = "what is the iPhone 15 plus price in India"
+    # thread_id = 'BHAGWAT'
+    # namespace = 'agenticrag'
+    # agent = AgenticRAG()
+    # agent.run(query, thread_id, namespace)
+
+    agent = AgenticRAG()
+
+    # Session 1
+    agent.run("What is iPhone 15 Plus price?", thread_id="session_01")
+
+    # Session 2 – same thread_id, resumed conversation
+    agent.run("Compare it with Samsung S25 Ultra", thread_id="session_01")
+

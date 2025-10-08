@@ -20,6 +20,7 @@ python main.py
 import uvicorn
 from prod_assistant.core.bootstrap import bootstrap_app
 from prod_assistant.core import globals
+from prod_assistant.workflow.agentic_workflow_with_mcp_websearch import AgenticRAG
 
 
 def main():
