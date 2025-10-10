@@ -68,7 +68,7 @@ llm:
 # -----------------------------------------------------------------
 # AstraDB Configuration
 # -----------------------------------------------------------------
-astra:
+astra_db:
   api_endpoint: ${ASTRA_DB_API_ENDPOINT}
   keyspace: ${ASTRA_DB_KEYSPACE}
   token: ${ASTRA_DB_APPLICATION_TOKEN}
