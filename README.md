@@ -1,155 +1,162 @@
-# Pulse-Flow
-
-**Smart E-Commerce Assistant with Real-Time Product Intelligence**  
-
-Pulse-Flow is a **GenAI-powered product intelligence system** that can analyze and respond to real-time product queries by merging **static product data** with **live e-commerce information**. Built with **RAG + LangChain agents + Multi-Channel Processing (MCP)**, it delivers accurate, context-aware, multi-step reasoning for e-commerce applications.  
+# PulseFlow – Multi-Agent Product Intelligence System
+> FAANG-grade, production-ready multi-agent RAG framework with LangGraph + MCP + RAGAs + LangSmith observability
 
 ---
 
-## 🚀 Project Vision  
+### Overview
+PulseFlow is an **agentic AI orchestration framework** built for **e-commerce product intelligence** and **domain-adaptive reasoning**.  
+It blends **Retrieval-Augmented Generation (RAG)**, **LangGraph orchestration**, **Multi-Channel Processing (MCP)** for hybrid tool use, and **RAGAs-based evaluation** for precision tracking.
 
-In today’s fast-moving e-commerce world, customers demand **instant, intelligent answers** to product queries. Traditional systems rely only on static catalogs, missing out on **real-time signals** like discounts, availability, or reviews.  
-
-**Pulse-Flow bridges this gap** — enabling enterprises to deliver **personalized, reliable, and real-time product insights** at scale.  
-
----
-
-## 🏗️ System Architecture  
-
-comming soon...
-
+### Core features:
+ 🔹 **Multi-Agent Architecture** — Router → Retriever → Grader → Rewriter → Generator  
+ 🔹 **Hybrid Retrieval** — Combines vector recall (AstraDB) + real-time web search (DuckDuckGo via MCP)  
+ 🔹 **Async Evaluation** — Context Precision & Response Relevancy (RAGAs)  
+ 🔹 **Structured Observability** — Full JSON logging + trace correlation via StructLog & LangSmith  
+ 🔹 **Cloud-Native Ready** — Dockerized, Kubernetes deployable, AWS Secrets-integrated  
 
 ---
 
-## 🔑 Core Features  
+### 🏗️ Architecture Snapshot
+User → Router → Retriever → Grader → Rewriter → WebSearch → Generator → RAGAs Eval
+│
+├── MCP Adapter → AstraDB (Vector) + DuckDuckGo (Web)
+└── LangGraph StateGraph (Checkpointed via MemorySaver)
 
-✨ **RAG + LangChain Agents**  
-Ground responses in factual product knowledge while enabling **multi-step reasoning** (e.g., “Compare top 3 budget smartphones under ₹25K with best battery life”).  
-
-✨ **Multi-Channel Processing (MCP)**  
-Merge static + dynamic signals to deliver context-aware answers, ensuring responses stay fresh and market-aligned.  
-
-✨ **Real-Time Data Enablement**  
-Use **APIs & scraping pipelines** to fetch product details, reviews, and live availability from platforms like Amazon & Flipkart.  
-
-✨ **Decoupled Frontend & Backend**  
-- **Frontend**: Chat UI built with HTML/CSS/JS.  
-- **Backend**: FastAPI-powered APIs for modular query processing.  
-
-✨ **CI/CD + Secure Deployment**  
-- GitHub Actions for automated builds & rollouts.  
-- Docker & Trivy for vulnerability scanning.  
-- AWS EKS for secure, scalable Kubernetes deployments.  
 
 ---
 
-## 📚 Learning Tracks  
+### 🧩 Technology Stack
 
-1️⃣ **Foundation of Product Intelligence Systems**  
-- Introduction to Intelligent Product Assistants.  
-- RAG and MM-RAG overview.  
-
-2️⃣ **Real-Time Data Pipelines**  
-- APIs & scraping workflows.  
-- Preparing structured product datasets.  
-- Embedding & indexing with Astra DB.  
-
-3️⃣ **Merged Context AI with MCP**  
-- Building RAG Chains for blended context.  
-- LangChain tools & agents for multi-step queries.  
-- Role of MCP in enterprise architectures.  
-
-4️⃣ **Frontend & Backend Development**  
-- Chat UI for real-time interactions.  
-- FastAPI backend for scalable query pipelines.  
-
-5️⃣ **CI/CD & Secure Deployment**  
-- GitHub Actions automation.  
-- Docker image build & push to AWS ECR.  
-- Trivy security scans.  
-- Kubernetes manifests (`deployment.yaml`, `service.yaml`, `configmap.yaml`).  
-- AWS EKS rollout verification & monitoring.  
+| Layer | Tools / Frameworks | Purpose |
+|-------|--------------------|----------|
+| **LLM & Prompting** | OpenAI GPT-4o, Groq Mixtral, LangChain | Core reasoning & generation |
+| **Orchestration** | LangGraph 0.6 (StateGraph + MemorySaver) | Multi-agent flow control |
+| **Retrieval** | AstraDB Vector Store + Contextual Compression | Semantic recall |
+| **Tooling** | MCP (FastMCP + Adapters) | Asynchronous external tool execution |
+| **Evaluation** | RAGAs + LangSmith Tracing | Response & context metrics |
+| **Infra** | Docker, EKS, ECR, AWS Secrets Manager | Cloud deployment |
+| **Logging** | StructLog + Trace IDs + JSON logs | Enterprise observability |
 
 ---
 
-## 🛠️ Tech Stack  
-
-- **GenAI Layer**: RAG, LangChain, MCP  
-- **Data**: Astra DB, APIs, Web Scraping  
-- **Backend**: FastAPI  
-- **Frontend**: HTML, CSS, JS (Chat UI)  
-- **DevOps**: GitHub Actions, Docker, Trivy, AWS ECR  
-- **Deployment**: Kubernetes, AWS EKS  
-
----
-
-## 📦 Repository Structure  
+### ⚙️ Local Setup
 
 ```bash
-pulse-flow/
-├── .github
-│   └── workflows
-│       └── .gitkeep
-├── .gitignore
-├── LICENSE
-├── README.md
-├── get_project_structure.py
-├── main.py
-├── notebook
-│   └── experiment.ipynb
-├── prod_assistant
-│   ├── config
-│   │   └── config_base.yaml
-│   ├── etl
-│   │   ├── data_ingestion.py
-│   │   └── data_scrapper.py
-│   ├── exception
-│   │   └── custom_exception.py
-│   ├── logger
-│   │   └── logger.py
-│   └── utils
-│       ├── secrets.py
-│       ├── config_dev.py
-│       └── model_loader.py
-├── pyproject.toml
-├── requirements.txt
-├── scrapper_ui.py
-├── static
-│   └── online_shopping.png
-├── templates
-│   └── chat.html
-└── versions.py
+# 1️⃣ Clone the repo
+git clone https://github.com/bhagwat-chate/pulse-flow.git
+cd pulse-flow
 
+# 2️⃣ Create virtual environment
+uv venv venv-pulse-flow
+source venv-pulse-flow/bin/activate  # or .\venv-pulse-flow\Scripts\activate
+
+# 3️⃣ Install dependencies
+pip install -r requirements.txt
+
+# 4️⃣ Configure environment
+cp .env.example .env
+# → Fill in API keys & AstraDB info for local dev
+
+# 5️⃣ Run FastAPI service
+python main.py
+
+Visit → http://localhost:8080
+You’ll see the interactive PulseFlow chat UI powered by templates/chat.html.
+```
+### AWS / Kubernetes Deployment
+1️⃣ Build & Push Docker Image
+```commandline
+docker build -t pulseflow:latest .
+docker tag pulseflow:latest <aws_account_id>.dkr.ecr.ap-south-1.amazonaws.com/pulseflow:latest
+docker push <aws_account_id>.dkr.ecr.ap-south-1.amazonaws.com/pulseflow:latest
 ```
 
----
+2️⃣ Apply Kubernetes Manifests
+```commandline
+kubectl apply -f k8/deployment.yaml
+kubectl apply -f k8/service.yaml
+```
+3️⃣ Secrets Management
 
-## ✅ Deployment Flow  
+All production secrets are loaded from AWS Secrets Manager
+(AWS_SECRET_NAME + AWS_REGION in container env).
 
-1. **Code Push → GitHub**  
-2. **GitHub Actions CI/CD**  
-   - Build Docker image.  
-   - Run Trivy vulnerability scans.  
-   - Push to AWS ECR.  
-3. **GitHub Actions CD**  
-   - Deploy manifests to AWS EKS.  
-   - Verify rollout & health checks.  
-4. **Monitoring**  
-   - Logs & metrics via CloudWatch.  
+core/bootstrap.py merges them automatically at startup.
 
----
+### Repository Layout (v1.0.0)
+```
+prod_assistant/
+├── core/            # bootstrap, logging, tracing
+├── utils/           # shared loaders (model, MCP, RAGAs)
+├── workflow/        # LangGraph multi-agent pipelines
+├── mcp_servers/     # external MCP tools (product_search_server)
+├── retriever/       # AstraDB retriever
+├── router/          # FastAPI app, routes
+├── prompt_library/  # prompt registry
+├── evaluation/      # RAGAs evaluation logic
+└── exception/       # domain-level exception classes
+```
+### Example Query Flow
+- User asks → “iPhone 15 Plus price in India” 
+- Router decides retrieval path → MCP get_product_info
+- Retriever fetches from AstraDB or DuckDuckGo
+- Grader validates relevance → rewrites if unclear
+- Generator composes final answer
+- RAGAs evaluates → logs context precision + response relevancy
 
-## 🎯 Outcomes  
+Logs per node are trace-correlated (trace_id) and streamed to LangSmith.
 
-By the end of this project, you’ll have:  
-- A **production-ready GenAI e-commerce assistant**.  
-- Hands-on expertise in **RAG, LangChain, and MCP architectures**.  
-- Skills in **secure DevSecOps pipelines with AWS EKS**.  
-- A **portfolio-ready, enterprise-grade project** to showcase.  
+### RAG Evaluation Metrics
+| Metric                 | Description                                                |
+| ---------------------- | ---------------------------------------------------------- |
+| **Context Precision**  | Measures overlap between retrieved vs ground truth context |
+| **Response Relevancy** | Evaluates LLM answer alignment with input intent           |
+| **Composite Score**    | Weighted average for continuous benchmarking               |
 
----
+### Deployment Checkpoints
+| Environment | Config File               | Notes                           |
+| ----------- | ------------------------- | ------------------------------- |
+| **DEV**     | `config/config_dev.yaml`  | Loads from `.env`, verbose logs |
+| **PROD**    | `config/config_prod.yaml` | AWS Secrets + minimal logs      |
+| **Base**    | `config/config_base.yaml` | Shared defaults                 |
 
-## 🔗 Connect  
+### Core MCP Tools
+| Tool Name          | Purpose                            | Backend               |
+| ------------------ | ---------------------------------- | --------------------- |
+| `get_product_info` | Product retrieval from AstraDB     | LangChain Retriever   |
+| `web_search`       | Web query fallback (news, reviews) | DuckDuckGo Search Run |
 
-💡 Built as part of my journey into **GenAI system design & enterprise deployments**.  
-Follow my LinkedIn series for deep-dives, lessons learned, and live progress updates on **Pulse-Flow**.  
+### Observability
+
+- Structured JSON logs via StructLog
+- Trace IDs per HTTP request (trace_middleware.py)
+- LangSmith integration for node-level traces
+- Logs can be exported to CloudWatch / Loki / ELK
+
+### Development Notes
+- Code adheres to PEP 8 + FAANGM-grade documentation standards
+- Exception safety across all nodes (custom_exception.py)
+- Fully asynchronous MCP tool handling (see mcp_tool_loader.py)
+- Supports domain adaptation (finance, healthcare, retail etc.)
+
+### Versioning
+| Property     | Value         |
+| ------------ | ------------- |
+| Version      | `1.0.0`       |
+| Release Date | `2025-10-10`  |
+| Maintainer   | Bhagwat Chate |
+| License      | MIT           |
+| Python       | 3.11.13       |
+
+
+### Credits
+Developed by **Bhagwat Chate**
+→ GenAI Architect | System Design Mentor | LLMOPS Consultant
+
+LinkedIn: AI with Bhagwat Chate
+
+GitHub: bhagwat-chate/pulse-flow
+
+### License
+This project is licensed under the MIT License.
+See the full license text in LICENSE.
