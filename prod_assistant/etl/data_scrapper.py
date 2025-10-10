@@ -1,5 +1,3 @@
-# prod_assistant/etl/data_scrapper.py
-
 """
 ================================================================================
  PulseFlow ETL – Flipkart Product Review Scraper
@@ -50,6 +48,9 @@ Copyright © 2025 Bhagwat Chate.
 This code is part of the **PulseFlow** system under the personal projects umbrella.
 All rights reserved.
 """
+
+from prod_assistant.core.bootstrap import bootstrap_app
+bootstrap_app()
 
 import csv
 import time
