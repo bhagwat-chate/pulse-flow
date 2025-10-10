@@ -1,15 +1,78 @@
 # prod_assistant/config/config_prod.yaml
 
+# ==============================================================================
+# PulseFlow – Production Environment Configuration (YAML)
+# ==============================================================================
+# - Author      : Bhagwat Chate
+# - Project     : PulseFlow – Multi-Agent Product Intelligence System
+# - Module      : config_prod
+# - Version     : 1.0.0
+# - Created on  : 2025-10-10
+# - Last Updated: 2025-10-10
+# - Environment : Production | Configuration Layer | YAML Schema
+# ==============================================================================
+#
+# Overview
+# --------
+# This file defines the **production-specific configuration overrides** for the
+# PulseFlow system. It extends the `config_base.yaml` baseline with secure,
+# runtime-injected secrets and database credentials intended for AWS ECS/Fargate
+# or EKS deployments. All secret values are fetched from AWS Secrets Manager or
+# environment variables provided at container runtime.
+#
+# Core Responsibilities
+# ---------------------
+# - Define the active runtime environment as `prod`.
+# - Bind secure API keys for LLMs and embedding models from Secrets Manager.
+# - Configure AstraDB connection parameters for persistent vector storage.
+# - Serve as the configuration entrypoint for ECS tasks and CI/CD pipelines.
+#
+# Workflow Topology
+# -----------------
+# ECS Task → Config Loader → ModelLoader → AgenticRAG → CloudWatch / LangSmith
+#
+# External Integrations
+# ---------------------
+# - **OpenAI** — Production-grade LLM and embeddings provider.
+# - **AstraDB (DataStax)** — Persistent vector store for retrieval contexts.
+# - **AWS Secrets Manager** — Injects credentials securely at runtime.
+# - **CloudWatch** — Monitors logs and system health.
+#
+# Changelog
+# ----------
+# v1.0.0 (2025-10-10)
+#     • Established production configuration schema for ECS/Fargate deployments.
+#     • Added secret substitution placeholders for OpenAI and AstraDB.
+#     • Integrated environment-agnostic compatibility with config_base.yaml.
+#
+# License
+# -------
+# Copyright © 2025 Bhagwat Chate.
+# This configuration is part of the **PulseFlow** system under the
+# personal projects umbrella. All rights reserved.
+# ==============================================================================
+
+# -----------------------------------------------------------------
+# Application Metadata
+# -----------------------------------------------------------------
 app:
   name: pulseflow
   env: prod
   port: 8080
 
+
+# -----------------------------------------------------------------
+# Model Secrets Override
+# -----------------------------------------------------------------
 llm:
   provider: openai
   model: ${OPENAI_API_KEY}        # read from AWS Secrets Manager
   embedding_model: ${EMBED_MODEL}
 
+
+# -----------------------------------------------------------------
+# AstraDB Configuration (Vector Store)
+# -----------------------------------------------------------------
 astra:
   db_id: ${ASTRA_DB_ID}
   keyspace: ${ASTRA_DB_KEYSPACE}

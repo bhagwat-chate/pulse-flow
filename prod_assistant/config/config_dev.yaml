@@ -1,5 +1,56 @@
 # prod_assistant/config/config_dev.yaml
 
+# ==============================================================================
+# PulseFlow – Development Environment Configuration (YAML)
+# ==============================================================================
+# - Author      : Bhagwat Chate
+# - Project     : PulseFlow – Multi-Agent Product Intelligence System
+# - Module      : config_dev
+# - Version     : 1.0.0
+# - Created on  : 2025-10-10
+# - Last Updated: 2025-10-10
+# - Environment : Development | Configuration Layer | YAML Schema
+# ==============================================================================
+#
+# Overview
+# --------
+# This file defines the **development-specific configuration overrides** for
+# the PulseFlow system. It extends the `config_base.yaml` configuration by
+# injecting environment-sensitive secrets and database connection parameters.
+# These values are dynamically substituted at runtime from environment
+# variables or AWS Secrets Manager entries.
+#
+# Core Responsibilities
+# ---------------------
+# - Define active runtime environment as `dev`.
+# - Override API keys for model providers (OpenAI, Groq, Google).
+# - Configure AstraDB connectivity for local vector store operations.
+# - Serve as the default config when `ENV=DEV` in the PulseFlow runtime.
+#
+# Workflow Topology
+# -----------------
+# Config Loader → ModelLoader → Retriever / RAG Pipeline → Observability Stack
+#
+# External Integrations
+# ---------------------
+# - **OpenAI** — Embeddings and LLM provider (for DEV testing).
+# - **AstraDB (DataStax)** — Vector store backend for context retrieval.
+# - **AWS Secrets Manager** — Injects sensitive credentials into environment.
+#
+# Changelog
+# ----------
+# v1.0.0 (2025-10-10)
+#     • Added environment-specific overrides for `embedding` and `llm` sections.
+#     • Introduced AstraDB parameters for vector storage testing.
+#     • Configured dynamic secret placeholders for secure variable injection.
+#
+# License
+# -------
+# Copyright © 2025 Bhagwat Chate.
+# This configuration is part of the **PulseFlow** system under the
+# personal projects umbrella. All rights reserved.
+# ==============================================================================
+
 app:
   name: pulseflow
   env: dev

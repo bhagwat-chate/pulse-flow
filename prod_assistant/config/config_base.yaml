@@ -1,5 +1,57 @@
-# prod_assistant/config/config_base.yaml
 
+# ==============================================================================
+# PulseFlow – Base Configuration (YAML)
+# ==============================================================================
+# - Author      : Bhagwat Chate
+# - Project     : PulseFlow – Multi-Agent Product Intelligence System
+# - Module      : config_base
+# - Version     : 1.0.0
+# - Created on  : 2025-10-10
+# - Last Updated: 2025-10-10
+# - Environment : Configuration Layer | YAML Schema | Provider Registry
+# ==============================================================================
+#
+# Overview
+# --------
+# This file defines the **base configuration schema** for the PulseFlow system.
+# It serves as the environment-agnostic foundation from which all environment-
+# specific configuration files (e.g., `config_dev.yaml`, `config_prod.yaml`)
+# inherit. Only environment-sensitive values such as API keys, secrets, or
+# endpoints should be overridden in those respective YAMLs.
+#
+# Core Responsibilities
+# ---------------------
+# - Define application-level defaults (app name, port, environment).
+# - Specify model configuration for embeddings and LLMs.
+# - Provide a unified provider registry for OpenAI, Groq, and Google models.
+# - Enable the `ModelLoader` utility to dynamically load the correct provider
+#   configuration based on environment and registry lookup.
+#
+# Workflow Topology
+# -----------------
+# Config Loader → ModelLoader → Retriever / LLM Agents
+#
+# External Integrations
+# ---------------------
+# - **LangChain** — For model class definitions and API usage.
+# - **OpenAI / Groq / Google Generative AI** — For embedding and LLM models.
+# - **Environment Variables (.env / AWS Secrets Manager)** — For API keys.
+#
+# Changelog
+# ----------
+# v1.0.0 (2025-10-10)
+#     • Established provider-agnostic configuration schema.
+#     • Added structured YAML hierarchy for `embedding`, `llm`, and `providers`.
+#     • Integrated OpenAI, Groq, and Google model defaults.
+#     • Introduced environment placeholder substitution for secrets.
+#
+# License
+# -------
+# Copyright © 2025 Bhagwat Chate.
+# This configuration is part of the **PulseFlow** system under the
+# personal projects umbrella. All rights reserved.
+# ==============================================================================
+#
 # =====================================================================
 # PulseFlow - Base Configuration
 # =====================================================================
@@ -7,6 +59,7 @@
 # Contains provider-wise model definitions and defaults.
 # Environment-specific overrides (dev/prod) only replace secrets or keys.
 # =====================================================================
+
 
 app:
   name: pulseflow
