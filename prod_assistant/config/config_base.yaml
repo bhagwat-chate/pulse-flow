@@ -82,16 +82,3 @@ providers:
       api_key_env: GOOGLE_API_KEY
       temperature: 0.2
       max_output_tokens: 2048
-
-# ---------------------------------------------------------------------
-# Persistent Memory / Checkpoint Store (LangGraph)
-# ---------------------------------------------------------------------
-database:
-  provider: postgres
-  driver: psycopg2
-  username: ${DB_USERNAME}
-  password: ${DB_PASSWORD}
-  host: ${DB_CONNECTION_ENDPOINT}
-  port: ${DB_PORT}
-  dbname: ${DB_CHECKPOINT}
-  uri: postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_CONNECTION_ENDPOINT}:${DB_PORT}/${DB_CHECKPOINT}

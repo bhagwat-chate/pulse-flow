@@ -8,31 +8,33 @@
 
  Description:
      Core FastAPI entrypoint for the PulseFlow backend service.
-     This module defines:
-         • HTTP routing for the chat and observability endpoints
-         • Request → Agentic RAG workflow orchestration
-         • Global exception handling and trace correlation
-         • LangSmith-integrated tracing wrapper for full observability
+
+ This module defines:
+     • HTTP routing for the chat and observability endpoints
+     • Request → Agentic RAG workflow orchestration
+     • Global exception handling and trace correlation
+     • LangSmith-integrated tracing wrapper for full observability
 
  Architecture Context:
-     ├── Layer:  User / API Gateway
-     ├── Upstream: Chat UI (HTML Form, /get route)
-     ├── Downstream: AgenticRAG workflow → LangSmith → CloudWatch
-     ├── Observability: Trace IDs via LangSmith + Structured JSON logs
-     └── Deployment: AWS ECS / EKS (FastAPI container service)
+     - Layer:  User / API Gateway
+     - Upstream: Chat UI (HTML Form, /get route)
+     - Downstream: AgenticRAG workflow → LangSmith → CloudWatch
+     - Observability: Trace IDs via LangSmith + Structured JSON logs
+     - Deployment: AWS EKS (FastAPI container service)
 
  Key Features:
-     ✅ Structured JSON logging with per-request trace_id
-     ✅ Unified observability endpoints (/info, /health, /metrics)
-     ✅ LangSmith trace wrapper (compatible ≤ v0.4.32)
-     ✅ Graceful exception management using ProductAssistantException
-     ✅ Cloud-native readiness for S3 log archival and monitoring
+     - Structured JSON logging with per-request trace_id
+     - Unified observability endpoints (/info, /health, /metrics)
+     - LangSmith trace wrapper (compatible ≤ v0.4.32)
+     - Graceful exception management using ProductAssistantException
 
  Version:     v1.1.0 – Observability Milestone
  Author:      Bhagwat Chate
  Organization: iDataflow.ai
  Date:        2025-10-05
+
  ----------------------------------------------------------
+
  Engineering Standards Followed:
      • FAANGM-grade structure and docstrings
      • Modular exception safety with explicit error boundaries
@@ -74,12 +76,27 @@ from prod_assistant.workflow.agentic_workflow_with_mcp_websearch import AgenticR
 
 
 # ==========================================================
-# LangSmith Top-Level Trace Wrapper
+# LangSmith Top-Level Trace Wrapper (Async Version)
 # ==========================================================
 @traceable(name="PulseFlowRequest")
-def run_pulseflow_agent(query: str) -> str:
-    """Execute a LangSmith-traced PulseFlow request."""
+async def run_pulseflow_agent(query: str) -> str:
+    """
+    Execute a LangSmith-traced PulseFlow request.
+
+    Responsibilities:
+        - Injects trace metadata for LangSmith correlation.
+        - Executes the AgenticRAG workflow asynchronously.
+        - Wraps all runtime errors inside ProductAssistantException.
+
+    Args:
+        query (str): User's natural language query or product-related question.
+
+    Returns:
+        str: Final generated response from the AgenticRAG pipeline.
+    """
     trace_id = get_trace_id()
+
+    # Inject trace metadata for LangSmith observability
     try:
         if hasattr(run_helpers, "add_extra"):
             run_helpers.add_extra({"trace_id": trace_id})
@@ -90,12 +107,16 @@ def run_pulseflow_agent(query: str) -> str:
     except Exception as e:
         print(f"[LangSmith metadata injection skipped] {e}")
 
+    # Execute the async AgenticRAG pipeline
     try:
-        return AgenticRAG().run(query)
+        LOGGER.info("Invoking AgenticRAG pipeline", trace_id=trace_id, query=query)
+        agent = AgenticRAG()
+        result = await agent.run(query, thread_id=trace_id)   # ✅ Await async coroutine
+        LOGGER.info("AgenticRAG pipeline completed", trace_id=trace_id)
+        return result
     except Exception as e:
-        # Wrap any runtime errors from the agent
+        LOGGER.error("AgenticRAG pipeline failed", trace_id=trace_id, error=str(e))
         raise ProductAssistantException(e)
-
 
 # ==========================================================
 # FastAPI Initialization
@@ -162,8 +183,8 @@ async def chat(msg: str = Form(...)) -> str:
     """Process chat messages via the Agentic RAG workflow."""
     try:
         LOGGER.info("Received chat request", message=msg)
-        answer = run_pulseflow_agent(msg)
-        LOGGER.info("Agentic RAG response generated", response=answer[:200])
+        answer = await run_pulseflow_agent(msg)
+        LOGGER.info("Agentic RAG response generated", response=answer)
         return answer
     except ProductAssistantException as pe:
         # Custom exception already enriched with traceback
@@ -231,6 +252,10 @@ async def add_trace_id(request: Request, call_next):
     response.headers["X-Trace-ID"] = trace_id
     return response
 
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    LOGGER.info("PulseFlow shutting down gracefully", trace_id="system")
 
 # ==========================================================
 # Local Debug Entrypoint

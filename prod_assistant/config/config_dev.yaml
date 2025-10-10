@@ -22,14 +22,3 @@ astra:
   keyspace: ${ASTRA_DB_KEYSPACE}
   token: ${ASTRA_DB_APPLICATION_TOKEN}
   collection_name: ${ASTRA_DB_COLLECTION}
-
-# -----------------------------------------------------------------
-# PostgresSQL Configuration
-# -----------------------------------------------------------------
-database:
-  provider: postgres
-  username: ${DB_USERNAME}
-  password: ${DB_PASSWORD}
-  host: ${DB_CONNECTION_ENDPOINT}
-  port: ${DB_PORT}
-  dbname: ${DB_CHECKPOINT}

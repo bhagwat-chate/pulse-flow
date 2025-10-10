@@ -5,7 +5,7 @@
  AgenticRAG Workflow (MCP + RAGAs)
 ================================================================================
 - Author      : Bhagwat Chate
-- Project     : PulseFlow – Multi-Agent Product Intelligence System
+- Project     : PulseFlow: Multi-Agent Product Intelligence System
 - Module      : agentic_workflow_with_mcp_websearch
 - Version     : 1.0.0
 - Created on  : 2025-10-06
@@ -57,10 +57,7 @@ All rights reserved.
 
 from prod_assistant.core.bootstrap import bootstrap_app
 bootstrap_app()
-import logging
-logging.getLogger("langgraph.checkpoint").setLevel(logging.DEBUG)
 
-import psycopg
 import json
 import asyncio
 from typing import Annotated, Sequence, TypedDict, Literal
@@ -71,7 +68,6 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.checkpoint.postgres import PostgresSaver
 
 from prod_assistant.prompt_library.prompts import PROMPT_REGISTRY, PromptType
 from prod_assistant.retriever.retrieval import Retriever
@@ -80,7 +76,6 @@ from prod_assistant.utils.mcp_tool_loader import schedule_mcp_tool_loading
 from prod_assistant.utils.ragas_helper import launch_ragas_evaluation
 from prod_assistant.core.trace import get_trace_id
 from prod_assistant.core.globals import LOGGER
-from prod_assistant.core.globals import get_config
 
 
 class AgenticRAG:
@@ -127,18 +122,7 @@ class AgenticRAG:
         self.retriever_obj = Retriever()
         self.model_loader = ModelLoader()
         self.llm = self.model_loader.load_llm()
-
-        config = get_config()
-        db_uri = config['database']['uri']
-        LOGGER.info(f"✅ Checkpointer initialized with DB: {db_uri}")
-
-        conn = psycopg.connect(db_uri)
-        LOGGER.info(f"✅ conn: {conn}")
-
-        self.checkpointer = PostgresSaver(conn)
-        self.checkpointer.setup()
-        LOGGER.info(f"✅ self.checkpointer: {self.checkpointer}")
-
+        self.checkpointer = MemorySaver()
         self.mcp_client = MultiServerMCPClient({
             "hybrid_search": {
                 "command": "python",
@@ -430,23 +414,13 @@ class AgenticRAG:
     #
     #     return final_response
 
-    def run(self, query: str, thread_id: str = "debug_thread", namespace: str = "agenticrag") -> str:
-        trace_id = get_trace_id()
-        LOGGER.info("Workflow invoked", trace_id=trace_id, query=query, namespace=namespace)
-
-        # Explicit persistence checkpoints
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": namespace}}
-        result = self.app.invoke({"messages": [HumanMessage(content=query)]}, config=config)
-
-        # Force a save explicitly
-        self.checkpointer.put_checkpoint(
-            {"thread_id": thread_id, "checkpoint_ns": namespace, "data": {"messages": result["messages"]}}
+    async def run(self, query: str, thread_id: str = "default_thread") -> str:
+        """Run the workflow for a given query and return the final answer."""
+        result = await self.app.ainvoke(
+            {"messages": [HumanMessage(content=query)]},
+            config={"configurable": {"thread_id": thread_id}}
         )
-        LOGGER.info("Checkpoint manually written to Postgres", trace_id=trace_id)
-
-        final_response = result["messages"][-1].content
-        LOGGER.info("Workflow completed", trace_id=trace_id)
-        return final_response
+        return result["messages"][-1].content
 
 
 if __name__ == '__main__':
