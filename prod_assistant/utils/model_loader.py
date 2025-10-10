@@ -32,7 +32,8 @@ class ModelLoader:
 
     def __init__(self):
         self.config = get_config()
-        LOGGER.info("ModelLoader initialized", app=self.config["app"]["name"], env=self.config["app"].get("env", "base"))
+        # LOGGER.info("ModelLoader initialized", app=self.config["app"]["name"],
+        # env=self.config["app"].get("env", "base"))
 
     # ------------------------------------------------------------------
     # Embedding Loader
