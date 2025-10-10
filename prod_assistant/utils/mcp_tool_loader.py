@@ -6,34 +6,36 @@
 - Author      : Bhagwat Chate
 - Project     : PulseFlow – Multi-Agent Product Intelligence System
 - Module      : utils.mcp_tool_loader
-- Version     : 1.0.0
+- Version     : 1.0.5
 - Created on  : 2025-10-10
-- Environment : Python 3.11.13 | LangGraph | MCP Adapter | StructLog
+- Environment : Python 3.11.13 | LangGraph | FastMCP
 ================================================================================
 
 Description
 -----------
-Provides asynchronous utilities for loading MCP (Multi-Channel Processing)
-tools safely and efficiently, with structured observability and event-loop
-awareness.
+Asynchronous loader for initializing predefined MCP tools within the
+AgenticRAG orchestrator. This implementation does not depend on any
+introspection APIs like `get_tools()` or `list_tools()`.
 
 Architecture Context
 --------------------
 Layer:        Integration / MCP Adapter
 Upstream:     AgenticRAG Orchestrator
-Downstream:   External MCP Servers (product_search_server, etc.)
+Downstream:   FastMCP Servers (e.g., product_search_server)
 
 Key Responsibilities
 --------------------
-• Load MCP tool metadata asynchronously.
-• Handle runtime event-loop conflicts gracefully.
-• Provide detailed structured logs with per-trace correlation.
+• Register known MCP tools used in the orchestration layer.
+• Handle async-safe initialization for concurrent workflows.
+• Provide structured trace-aware observability.
+• Prevent blocking of FastAPI event loop.
 
 Engineering Standards
 ---------------------
-• FAANGM-grade error handling (never crash on async runtime mismatch).
-• Semantic structured logging with `trace_id`.
-• Strict behavior-oriented docstrings for maintainability.
+• Non-blocking, async-safe design.
+• Structured single-line logs only.
+• Defensive exception handling — never crash.
+• Compatible with FastMCP tool registration model.
 """
 
 import asyncio
@@ -44,90 +46,69 @@ from prod_assistant.core.trace import get_trace_id
 # ======================================================================
 # Async MCP Tool Loader
 # ======================================================================
-async def load_mcp_tools_async(mcp_client):
+async def load_mcp_tools_async():
     """
-    Load available MCP tools asynchronously with robust error handling.
+    Asynchronously initialize and return a predefined list of MCP tool names.
 
-    Behavior
-    --------
-    - Uses the provided `mcp_client` to fetch all available tools.
-    - Extracts tool names and logs them under the current `trace_id`.
-    - Returns an empty list if the retrieval fails, ensuring the
-      pipeline remains non-blocking.
+    Behavior:
+        - Returns a static list of registered tools known to this system.
+        - Designed for systems using FastMCP without dynamic introspection.
+        - Useful for consistency in multi-agent workflows.
 
-    Parameters
-    ----------
-    mcp_client : object
-        The initialized MCP client instance exposing an async `get_tools()` method.
-
-    Returns
-    -------
-    list
-        A list of MCP tool metadata objects if successful, else an empty list.
-
-    Raises
-    ------
-    None
-        All exceptions are caught and logged to prevent runtime interruption.
+    Returns:
+        list[str]: List of MCP tool names.
     """
     trace_id = get_trace_id()
     try:
-        tools = await mcp_client.get_tools()
-        tool_names = [t.name for t in tools]
-        LOGGER.info(
-            "MCP tools loaded successfully",
-            tools=tool_names,
-            trace_id=trace_id,
-        )
+        # Define tool names registered in FastMCP servers
+        tools = ["get_product_info", "web_search"]
+        await asyncio.sleep(0)  # cooperative yield for async context
+        LOGGER.info("MCP tool registry initialized", tools=tools, trace_id=trace_id)
         return tools
     except Exception as e:
-        LOGGER.error(
-            "Failed to load MCP tools asynchronously",
-            trace_id=trace_id,
-            error=str(e),
-        )
+        LOGGER.error("Failed to initialize MCP tool registry", trace_id=trace_id, error=str(e))
         return []
 
 
 # ======================================================================
 # Event Loop Safe Scheduler
 # ======================================================================
-def schedule_mcp_tool_loading(mcp_client):
+def schedule_mcp_tool_loading(target_obj=None):
     """
-    Schedule MCP tool loading in an event-loop-safe manner.
+    Schedule MCP tool registry loading safely within an async-aware context.
 
-    Behavior
-    --------
-    - Detects whether an asyncio event loop is already running.
-    - If not running → runs `load_mcp_tools_async()` synchronously.
-    - If already running → schedules a coroutine task to avoid conflicts.
-    - Ensures no unhandled runtime warnings or blocking in async contexts.
+    Behavior:
+        - Detects if event loop is running (e.g., FastAPI server context).
+        - If running → schedules as background coroutine.
+        - If not running → executes synchronously until completion.
+        - Optionally binds tool names to target object (e.g., AgenticRAG).
 
-    Parameters
-    ----------
-    mcp_client : object
-        The MCP client instance whose tools need to be loaded.
+    Args:
+        target_obj (object, optional): Instance to attach the `mcp_tools` list.
 
-    Returns
-    -------
-    None
-        Executes asynchronously or synchronously depending on loop state.
-
-    Raises
-    ------
-    None
-        All exceptions are caught and logged with trace context.
+    Returns:
+        None
     """
     trace_id = get_trace_id()
     try:
         loop = asyncio.get_event_loop()
+
+        async def _load_and_store():
+            """Internal coroutine that initializes and assigns tool registry."""
+            try:
+                tools = await load_mcp_tools_async()
+                if target_obj is not None:
+                    target_obj.mcp_tools = tools
+                    LOGGER.info("MCP tools bound to target object", target=type(target_obj).__name__, tool_count=len(tools), trace_id=trace_id)
+            except Exception as inner_err:
+                LOGGER.error("MCP async load/store routine failed", trace_id=trace_id, error=str(inner_err))
+
         if loop.is_running():
-            loop.create_task(load_mcp_tools_async(mcp_client))
+            loop.create_task(_load_and_store())
+            LOGGER.info("MCP tool loader scheduled as background task", trace_id=trace_id)
         else:
-            loop.run_until_complete(load_mcp_tools_async(mcp_client))
+            loop.run_until_complete(_load_and_store())
+            LOGGER.info("MCP tool loader executed synchronously", trace_id=trace_id)
+
     except Exception as e:
-        LOGGER.error(
-            "Failed to start MCP tool loader",
-            trace_id=trace_id,
-            error=str(e),
-        )
+        LOGGER.error("Failed to start MCP tool loader", trace_id=trace_id, error=str(e))

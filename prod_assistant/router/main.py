@@ -25,12 +25,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 # --- Core Bootstrap ---
-from prod_assistant.core.bootstrap import bootstrap_app
+# from prod_assistant.core.bootstrap import bootstrap_app
 from prod_assistant.core.globals import get_config, LOGGER
 from prod_assistant.exception.custom_exception import ProductAssistantException
 
 # --- Load configuration and logger early ---
-bootstrap_app()
+# bootstrap_app()
 
 # --- Router Imports ---
 from prod_assistant.router.chat_router import router as chat_router
